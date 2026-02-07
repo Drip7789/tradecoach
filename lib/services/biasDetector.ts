@@ -62,6 +62,66 @@ function hoursBetween(date1: string, date2: string): number {
   return minutesBetween(date1, date2) / 60;
 }
 
+function stableHash(input: string): string {
+  let hash = 5381;
+  for (let i = 0; i < input.length; i++) {
+    hash = ((hash << 5) + hash) + input.charCodeAt(i);
+    hash = hash >>> 0;
+  }
+  return hash.toString(36).padStart(7, '0').slice(0, 7);
+}
+
+function normalizeMetricValue(value: number | string): string {
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? value.toString() : value.toFixed(4);
+  }
+  return value.trim();
+}
+
+function buildEvidenceSignature(evidence: Record<string, number | string>): string {
+  return Object.entries(evidence)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}:${normalizeMetricValue(value)}`)
+    .join('|');
+}
+
+function getBiasSymbolContext(
+  evidence: Record<string, number | string>,
+  affectedTradeIds: string[],
+  tradeById: Map<string, Trade>
+): string {
+  const evidenceSymbol = evidence.top_symbol;
+  if (typeof evidenceSymbol === 'string' && evidenceSymbol.trim()) {
+    return evidenceSymbol.trim().toUpperCase();
+  }
+
+  const symbolCounts = new Map<string, number>();
+  for (const tradeId of affectedTradeIds) {
+    const trade = tradeById.get(tradeId);
+    if (!trade) continue;
+    const symbol = trade.symbol?.trim().toUpperCase();
+    if (!symbol) continue;
+    symbolCounts.set(symbol, (symbolCounts.get(symbol) || 0) + 1);
+  }
+
+  if (symbolCounts.size === 0) return 'GLOBAL';
+
+  return Array.from(symbolCounts.entries())
+    .sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return a[0].localeCompare(b[0]);
+    })[0][0];
+}
+
+function buildDeterministicBiasId(
+  biasType: BiasType,
+  symbol: string,
+  evidence: Record<string, number | string>
+): string {
+  const signature = buildEvidenceSignature(evidence);
+  return `${biasType}-${symbol}-${stableHash(`${biasType}|${symbol}|${signature}`)}`;
+}
+
 // ============================================
 // 1. Overtrading Detector
 // Research: Barber & Odean (2000) - "Trading is Hazardous to Your Wealth"
@@ -899,14 +959,17 @@ export function analyzeBiases(
 
   const biases: BiasDetection[] = [];
   let totalScore = 0;
+  const tradeById = new Map(trades.map(trade => [trade.id, trade]));
 
   for (const { type, detect } of detectors) {
     const result = detect();
     totalScore += result.score;
 
     if (result.score > 0) {
+      const symbol = getBiasSymbolContext(result.evidence, result.affectedTrades, tradeById);
+      const deterministicId = buildDeterministicBiasId(type, symbol, result.evidence);
       biases.push({
-        id: `${type}-${Date.now()}`,
+        id: deterministicId,
         session_id: 'current',
         bias_type: type,
         score: result.score,
@@ -930,7 +993,10 @@ export function analyzeBiases(
   const disciplineScore = Math.max(0, Math.min(100, 100 - avgBiasScore));
 
   // Sort by severity
-  biases.sort((a, b) => b.score - a.score);
+  biases.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.id.localeCompare(b.id);
+  });
 
   const criticalBiases = biases.filter(b => b.severity === 'critical').length;
   const highBiases = biases.filter(b => b.severity === 'high').length;
