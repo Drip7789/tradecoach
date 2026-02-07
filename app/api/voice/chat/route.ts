@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
-
-// Initialize OpenAI (or use Anthropic if preferred)
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import WebSocket from 'ws';
 
 const GRADIUM_API_KEY = process.env.GRADIUM_API_KEY;
-const GRADIUM_API_URL = 'https://us.api.gradium.ai/api';
+
+// Gradium API endpoints (from docs)
+const GRADIUM_STT_WS = 'wss://us.api.gradium.ai/api/speech/asr';
+const GRADIUM_TTS_POST = 'https://us.api.gradium.ai/api/post/speech/tts';
+
+// Groq for LLM
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 
 export async function POST(request: NextRequest) {
+  const totalStart = Date.now();
+  
   try {
+    console.log('=== VOICE CHAT REQUEST ===');
+    
     // 1. Get audio and trading context from request
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File;
@@ -20,6 +27,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No audio file provided' }, { status: 400 });
     }
 
+    console.log(`📁 Audio: ${audioFile.size} bytes`);
+
     // Parse trading context from client
     let tradingContext = {};
     try {
@@ -28,23 +37,27 @@ export async function POST(request: NextRequest) {
       console.warn('Failed to parse trading context');
     }
 
-    // 2. Transcribe audio with Gradium STT
-    const userQuestion = await transcribeAudio(audioFile);
-    console.log('User asked:', userQuestion);
+    // 2. Transcribe audio with Gradium STT (WebSocket)
+    const sttStart = Date.now();
+    const userQuestion = await transcribeAudioGradium(audioFile);
+    console.log(`🎤 STT: ${Date.now() - sttStart}ms - "${userQuestion}"`);
 
     if (!userQuestion || userQuestion.trim() === '') {
       return NextResponse.json({ 
-        error: 'Could not transcribe audio. Please try again.',
+        error: 'Could not transcribe audio. Please speak more clearly.',
         transcript: '' 
       }, { status: 400 });
     }
 
-    // 3. Get AI coaching response with trading context
+    // 3. Get AI coaching response with trading context (Groq)
+    const llmStart = Date.now();
     const coachingText = await getCoachingResponse(userQuestion, tradingContext);
-    console.log('Coach responds:', coachingText);
+    console.log(`🤖 LLM: ${Date.now() - llmStart}ms`);
 
-    // 4. Synthesize speech with Gradium TTS
-    const audioBuffer = await synthesizeSpeech(coachingText);
+    // 4. Synthesize speech with Gradium TTS (HTTP POST)
+    const ttsStart = Date.now();
+    const audioBuffer = await synthesizeSpeechGradium(coachingText);
+    console.log(`🔊 TTS: ${Date.now() - ttsStart}ms`);
 
     // 5. Return audio with transcript and response text
     const response = new NextResponse(audioBuffer, {
@@ -55,6 +68,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    console.log(`✅ TOTAL: ${Date.now() - totalStart}ms`);
     return response;
 
   } catch (error) {
@@ -66,87 +80,167 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Transcribe audio using Gradium STT
-async function transcribeAudio(audioFile: File): Promise<string> {
+// Transcribe audio using Gradium STT (WebSocket)
+async function transcribeAudioGradium(audioFile: File): Promise<string> {
+  console.log('=== GRADIUM STT ===');
+  
   if (!GRADIUM_API_KEY) {
     throw new Error('Gradium API key not configured');
   }
 
   const audioBuffer = await audioFile.arrayBuffer();
-  const base64Audio = Buffer.from(audioBuffer).toString('base64');
+  const audioData = Buffer.from(audioBuffer);
+  
+  console.log('Audio buffer size:', audioData.length, 'bytes');
 
-  const response = await fetch(`${GRADIUM_API_URL}/speech/stt`, {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(GRADIUM_STT_WS, {
+      headers: {
+        'x-api-key': GRADIUM_API_KEY,
+      },
+    });
+
+    let transcribedText = '';
+    let isSetupDone = false;
+
+    ws.on('open', () => {
+      console.log('Gradium STT WebSocket connected');
+      
+      // Send setup message first
+      const setupMessage = {
+        type: 'setup',
+        model_name: 'default',
+        input_format: 'wav', // We'll send WAV data
+      };
+      ws.send(JSON.stringify(setupMessage));
+      console.log('Sent setup message');
+    });
+
+    ws.on('message', (data: Buffer) => {
+      try {
+        const message = JSON.parse(data.toString());
+        console.log('Gradium STT message:', message.type);
+
+        if (message.type === 'ready') {
+          isSetupDone = true;
+          console.log('Gradium STT ready, sending audio...');
+          
+          // Send audio data as base64
+          const audioMessage = {
+            type: 'audio',
+            audio: audioData.toString('base64'),
+          };
+          ws.send(JSON.stringify(audioMessage));
+          
+          // Send end of stream
+          setTimeout(() => {
+            ws.send(JSON.stringify({ type: 'end_of_stream' }));
+            console.log('Sent end_of_stream');
+          }, 100);
+        } 
+        else if (message.type === 'text') {
+          transcribedText += message.text + ' ';
+          console.log('Transcribed chunk:', message.text);
+        }
+        else if (message.type === 'end_of_stream') {
+          console.log('Gradium STT complete, text:', transcribedText.trim());
+          ws.close();
+          resolve(transcribedText.trim());
+        }
+        else if (message.type === 'error') {
+          console.error('Gradium STT error:', message.message);
+          ws.close();
+          reject(new Error(message.message || 'STT error'));
+        }
+      } catch (e) {
+        console.error('Error parsing Gradium message:', e);
+      }
+    });
+
+    ws.on('error', (error: Error) => {
+      console.error('Gradium STT WebSocket error:', error);
+      reject(new Error(`Gradium STT connection failed: ${error.message}`));
+    });
+
+    ws.on('close', (code: number, reason: Buffer) => {
+      console.log('Gradium STT WebSocket closed:', code, reason.toString());
+      if (!transcribedText) {
+        // If we closed without getting text, resolve with empty
+        resolve('');
+      }
+    });
+
+    // Timeout after 30 seconds
+    setTimeout(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+        reject(new Error('STT timeout'));
+      }
+    }, 30000);
+  });
+}
+
+// Synthesize speech using Gradium TTS (HTTP POST)
+async function synthesizeSpeechGradium(text: string): Promise<ArrayBuffer> {
+  console.log('=== GRADIUM TTS ===');
+  console.log('Text to synthesize:', text.substring(0, 100) + '...');
+  
+  if (!GRADIUM_API_KEY) {
+    throw new Error('Gradium API key not configured');
+  }
+
+  const response = await fetch(GRADIUM_TTS_POST, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${GRADIUM_API_KEY}`,
+      'x-api-key': GRADIUM_API_KEY,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      audio: base64Audio,
-      sample_rate: 24000,
-      language: 'en',
+      text: text,
+      voice_id: 'YTpq7expH9539ERJ', // Emma voice (default female US English)
+      output_format: 'wav',
+      only_audio: true,
     }),
   });
 
+  console.log('Gradium TTS response status:', response.status);
+
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Gradium STT error:', errorText);
-    throw new Error(`Speech transcription failed: ${response.status}`);
+    console.error('Gradium TTS error:', errorText);
+    throw new Error(`Gradium TTS failed: ${response.status} - ${errorText}`);
   }
 
-  const data = await response.json();
-  return data.text || data.transcript || '';
+  const audioBuffer = await response.arrayBuffer();
+  console.log('Gradium TTS audio size:', audioBuffer.byteLength, 'bytes');
+  
+  return audioBuffer;
 }
 
-// Get AI coaching response with trading context
-async function getCoachingResponse(
-  userQuery: string,
-  context: TradingContext
-): Promise<string> {
-  if (!process.env.OPENAI_API_KEY) {
-    // Fallback response if no API key
-    return generateFallbackResponse(userQuery, context);
-  }
-
-  const systemPrompt = `You are an expert trading psychologist and behavioral finance coach named BiasCoach.
-Your role is to help traders understand and overcome their psychological biases.
-
-IMPORTANT RULES:
-- Keep responses under 80 words (they will be spoken aloud)
-- Be warm, supportive, but direct about behavioral issues
-- Reference specific data when available (trade counts, scores, bias names)
-- Provide ONE actionable tip per response
-- Use simple language, avoid jargon
-- Never give financial advice or trade recommendations
-- Focus on emotional discipline and psychology`;
-
-  const userPrompt = buildContextPrompt(userQuery, context);
-
-  try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: 150,
-      temperature: 0.7,
-    });
-
-    return completion.choices[0].message.content || generateFallbackResponse(userQuery, context);
-  } catch (error) {
-    console.error('OpenAI error:', error);
-    return generateFallbackResponse(userQuery, context);
-  }
-}
-
+// Groq LLM for coaching response
 interface TradingContext {
+  cashBalance?: number;
+  totalPortfolioValue?: number;
+  unrealizedPnL?: number;
+  unrealizedPnLPercent?: number;
+  realizedPnL?: number;
+  positions?: Array<{
+    symbol: string;
+    quantity: number;
+    avgCost: number;
+    currentPrice: number;
+    currentValue: number;
+    pnl: number;
+    pnlPercent: number;
+  }>;
   trades?: Array<{
     id: string;
     symbol: string;
     action: string;
     pnl?: number;
     timestamp: string;
+    quantity?: number;
+    price?: number;
   }>;
   biases?: Array<{
     bias_type: string;
@@ -156,114 +250,123 @@ interface TradingContext {
   }>;
   disciplineScore?: number;
   totalTrades?: number;
+  winningTrades?: number;
+  losingTrades?: number;
   winRate?: number;
-  totalPnL?: number;
 }
 
-// Build context-rich prompt for the LLM
+async function getCoachingResponse(
+  userQuery: string,
+  context: TradingContext
+): Promise<string> {
+  console.log('=== GROQ LLM ===');
+
+  if (!GROQ_API_KEY) {
+    console.error('No GROQ_API_KEY set!');
+    return generateFallbackResponse(userQuery, context);
+  }
+
+  // Ultra-short for fast TTS (TTS is the bottleneck)
+  const systemPrompt = `You are BiasCoach. Reply in 20-30 words MAX. Be direct and reference their data. One tip only. No financial advice.`;
+
+  const userPrompt = buildContextPrompt(userQuery, context);
+
+  console.log('Calling Groq API...');
+  const startTime = Date.now();
+  
+  // Use faster 8B model for voice (speed > quality tradeoff)
+  const fastModel = 'llama-3.1-8b-instant';
+  
+  const response = await fetch(GROQ_API_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${GROQ_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: fastModel,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: 60, // Short responses = faster TTS
+      temperature: 0.5,
+    }),
+  });
+  
+  console.log(`Groq responded in ${Date.now() - startTime}ms`);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Groq API error:', response.status, errorText);
+    return generateFallbackResponse(userQuery, context);
+  }
+
+  const data = await response.json();
+  const aiResponse = data.choices?.[0]?.message?.content;
+  
+  console.log('Groq response:', aiResponse?.substring(0, 100) + '...');
+  
+  return aiResponse || generateFallbackResponse(userQuery, context);
+}
+
 function buildContextPrompt(query: string, data: TradingContext): string {
-  const { trades = [], biases = [], disciplineScore = 0, totalTrades = 0, winRate = 0, totalPnL = 0 } = data;
+  const { 
+    cashBalance = 0,
+    totalPortfolioValue = 0,
+    unrealizedPnL = 0,
+    realizedPnL = 0,
+    positions = [],
+    biases = [], 
+    disciplineScore = 0, 
+    totalTrades = 0,
+    winningTrades = 0,
+    losingTrades = 0,
+    winRate = 0,
+  } = data;
 
-  let prompt = `TRADER'S CURRENT STATE:
-- Total Trades: ${totalTrades}
-- Win Rate: ${winRate.toFixed(1)}%
-- Total P&L: $${totalPnL.toFixed(2)}
-- Discipline Score: ${disciplineScore}/100
+  // Compact context for speed (fewer tokens = faster)
+  const topBias = biases.find(b => b.score > 25);
+  const biasInfo = topBias ? `Bias: ${topBias.bias_type.replace(/_/g, ' ')} (${topBias.score}%)` : 'No major biases';
+  
+  const prompt = `Cash: $${cashBalance.toLocaleString()} | Portfolio: $${totalPortfolioValue.toLocaleString()} | Score: ${disciplineScore}/100
+${positions.length > 0 ? positions.slice(0, 2).map(p => `${p.symbol}: ${p.pnl >= 0 ? '+' : ''}$${p.pnl.toFixed(0)}`).join(', ') : 'No positions'}
+Stats: ${totalTrades} trades, ${winRate.toFixed(0)}% win | ${biasInfo}
 
-`;
-
-  // Add bias information
-  const activeBiases = biases.filter(b => b.score > 25);
-  if (activeBiases.length > 0) {
-    prompt += `DETECTED BEHAVIORAL BIASES:\n`;
-    activeBiases.forEach(bias => {
-      const biasName = bias.bias_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      prompt += `- ${biasName}: ${bias.severity} severity (${bias.score}%)\n`;
-    });
-    prompt += '\n';
-  } else {
-    prompt += 'DETECTED BIASES: None significant\n\n';
-  }
-
-  // Add recent trade info
-  if (trades.length > 0) {
-    const recentTrades = trades.slice(0, 5);
-    const wins = recentTrades.filter(t => (t.pnl || 0) > 0).length;
-    const losses = recentTrades.filter(t => (t.pnl || 0) < 0).length;
-    prompt += `RECENT ACTIVITY: ${wins} wins, ${losses} losses in last ${recentTrades.length} trades\n\n`;
-  }
-
-  prompt += `TRADER'S QUESTION: "${query}"\n\nProvide personalized coaching advice:`;
+Q: "${query}"
+Answer in 20-30 words:`;
 
   return prompt;
 }
 
-// Fallback response when OpenAI is not available
 function generateFallbackResponse(query: string, context: TradingContext): string {
-  const { biases = [], disciplineScore = 0 } = context;
+  const { biases = [], disciplineScore = 0, cashBalance = 0 } = context;
   const queryLower = query.toLowerCase();
 
-  // Check for specific topics
-  if (queryLower.includes('bias') || queryLower.includes('problem') || queryLower.includes('issue')) {
+  if (queryLower.includes('cash') || queryLower.includes('balance') || queryLower.includes('money')) {
+    return `You have $${cashBalance.toLocaleString()} in available cash. ${
+      cashBalance > 50000 
+        ? "That's a healthy cash position - you have flexibility to wait for good opportunities."
+        : "Consider keeping some cash reserve for unexpected opportunities."
+    }`;
+  }
+
+  if (queryLower.includes('bias') || queryLower.includes('problem')) {
     const topBias = biases.find(b => b.score > 30);
     if (topBias) {
       const biasName = topBias.bias_type.replace(/_/g, ' ');
-      return `I'm seeing ${biasName} as your main challenge right now with a ${topBias.score}% severity. ${topBias.intervention}`;
+      return `Your main challenge is ${biasName} with ${topBias.score}% severity. ${topBias.intervention}`;
     }
-    return "Great news! I'm not detecting any major biases in your trading patterns. Keep up the disciplined approach!";
+    return "Great news! No significant biases detected. Keep up the disciplined approach!";
   }
 
-  if (queryLower.includes('score') || queryLower.includes('discipline') || queryLower.includes('doing')) {
-    if (disciplineScore >= 80) {
-      return `Your discipline score is ${disciplineScore} out of 100. Excellent! You're showing strong emotional control in your trading.`;
-    } else if (disciplineScore >= 60) {
-      return `Your discipline score is ${disciplineScore} out of 100. That's good progress! Focus on consistency and you'll see improvement.`;
-    }
-    return `Your discipline score is ${disciplineScore} out of 100. There's room to grow, but that's exactly why I'm here to help!`;
+  if (queryLower.includes('score') || queryLower.includes('discipline')) {
+    return `Your discipline score is ${disciplineScore} out of 100. ${
+      disciplineScore >= 80 ? "Excellent self-control!" 
+        : disciplineScore >= 60 ? "Good progress, focus on consistency."
+        : "Room to grow - I'm here to help!"
+    }`;
   }
 
-  if (queryLower.includes('improve') || queryLower.includes('help') || queryLower.includes('better')) {
-    return "Here's my top tip: pause for 10 seconds before every trade. Ask yourself - am I trading based on analysis, or emotion? This simple habit can transform your discipline.";
-  }
-
-  if (queryLower.includes('revenge') || queryLower.includes('angry') || queryLower.includes('loss')) {
-    return "After a loss, your brain wants to recover immediately. But revenge trading usually leads to bigger losses. Try taking a 30-minute break after any losing trade.";
-  }
-
-  if (queryLower.includes('overtrad') || queryLower.includes('too many') || queryLower.includes('too much')) {
-    return "Quality over quantity is the key to trading success. Try limiting yourself to 3 to 5 well-researched trades per day instead of many impulsive ones.";
-  }
-
-  // Default response
-  return "I'm here to help you understand your trading psychology. You can ask me about your biases, discipline score, or how to improve your trading habits!";
+  return "I'm here to help with your trading psychology! Ask me about your biases, discipline score, cash position, or how to improve.";
 }
-
-// Synthesize speech using Gradium TTS
-async function synthesizeSpeech(text: string): Promise<ArrayBuffer> {
-  if (!GRADIUM_API_KEY) {
-    throw new Error('Gradium API key not configured');
-  }
-
-  const response = await fetch(`${GRADIUM_API_URL}/speech/tts`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${GRADIUM_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      text: text,
-      voice_id: 'YTpq7expH9539ERJ', // Default voice - can be changed
-      output_format: 'wav',
-      sample_rate: 24000,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Gradium TTS error:', errorText);
-    throw new Error(`Speech synthesis failed: ${response.status}`);
-  }
-
-  return await response.arrayBuffer();
-}
-

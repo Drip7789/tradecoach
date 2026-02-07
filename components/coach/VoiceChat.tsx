@@ -17,8 +17,44 @@ interface VoiceChatProps {
   onResponse?: (text: string) => void;
 }
 
+// Helper to create WAV file from audio samples
+function createWavBlob(samples: Float32Array, sampleRate: number): Blob {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+  
+  // WAV header
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  };
+  
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true); // Subchunk1Size
+  view.setUint16(20, 1, true); // AudioFormat (PCM)
+  view.setUint16(22, 1, true); // NumChannels (Mono)
+  view.setUint32(24, sampleRate, true); // SampleRate
+  view.setUint32(28, sampleRate * 2, true); // ByteRate
+  view.setUint16(32, 2, true); // BlockAlign
+  view.setUint16(34, 16, true); // BitsPerSample
+  writeString(36, 'data');
+  view.setUint32(40, samples.length * 2, true);
+  
+  // Convert Float32 to Int16
+  const offset = 44;
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+  }
+  
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
 export default function VoiceChat({ onTranscript, onResponse }: VoiceChatProps) {
-  const { trades, positions, disciplineScore } = usePortfolioStore();
+  const { trades, positions, cashBalance, totalValue, totalPnl, totalPnlPercent } = usePortfolioStore();
   const analysis = analyzeBiases(trades, positions);
 
   const [isRecording, setIsRecording] = useState(false);
@@ -28,18 +64,51 @@ export default function VoiceChat({ onTranscript, onResponse }: VoiceChatProps) 
   const [transcript, setTranscript] = useState<string>('');
   const [responseText, setResponseText] = useState<string>('');
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const audioChunksRef = useRef<Float32Array[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Build trading context to send to API
+  // Build trading context to send to API - includes ALL portfolio info
   const buildTradingContext = useCallback(() => {
     const winners = trades.filter(t => (t.pnl || 0) > 0);
-    const totalPnL = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+    const losers = trades.filter(t => (t.pnl || 0) < 0);
+    const realizedPnL = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
     const winRate = trades.length > 0 ? (winners.length / trades.length) * 100 : 0;
 
     return {
-      trades: trades.slice(0, 10), // Last 10 trades
+      // Portfolio overview
+      cashBalance,
+      totalPortfolioValue: totalValue,
+      unrealizedPnL: totalPnl,
+      unrealizedPnLPercent: totalPnlPercent,
+      realizedPnL,
+      
+      // Current positions
+      positions: positions.map(p => ({
+        symbol: p.symbol,
+        quantity: p.quantity,
+        avgCost: p.avg_cost,
+        currentPrice: p.current_price,
+        currentValue: p.current_value,
+        pnl: p.pnl,
+        pnlPercent: p.pnl_percent,
+        assetType: p.asset_type,
+      })),
+      
+      // Trade history
+      trades: trades.slice(0, 10).map(t => ({
+        id: t.id,
+        symbol: t.symbol,
+        action: t.action,
+        quantity: t.quantity,
+        price: t.price,
+        pnl: t.pnl,
+        timestamp: t.timestamp,
+      })),
+      
+      // Bias analysis
       biases: analysis.biases.map(b => ({
         bias_type: b.bias_type,
         score: b.score,
@@ -47,53 +116,54 @@ export default function VoiceChat({ onTranscript, onResponse }: VoiceChatProps) 
         intervention: b.intervention,
       })),
       disciplineScore: analysis.disciplineScore,
+      
+      // Statistics
       totalTrades: trades.length,
+      winningTrades: winners.length,
+      losingTrades: losers.length,
       winRate,
-      totalPnL,
     };
-  }, [trades, analysis]);
+  }, [trades, positions, analysis, cashBalance, totalValue, totalPnl, totalPnlPercent]);
 
   const startRecording = useCallback(async () => {
     try {
       setError(null);
+      audioChunksRef.current = [];
       
-      // Request microphone permission
+      // Request microphone permission with 16kHz (faster, smaller files)
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          sampleRate: 24000, // Gradium requires 24kHz
+          sampleRate: 16000,
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
         }
       });
-
-      // Create media recorder
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm') 
-          ? 'audio/webm' 
-          : 'audio/mp4',
-      });
-
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      // Collect audio chunks
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
+      
+      mediaStreamRef.current = stream;
+      
+      // Create AudioContext for raw PCM capture at 16kHz (smaller files, faster)
+      const audioContext = new AudioContext({ sampleRate: 16000 });
+      audioContextRef.current = audioContext;
+      
+      const source = audioContext.createMediaStreamSource(stream);
+      
+      // Use ScriptProcessorNode to capture raw samples
+      // Smaller buffer = lower latency
+      const processor = audioContext.createScriptProcessor(2048, 1, 1);
+      processorRef.current = processor;
+      
+      processor.onaudioprocess = (e) => {
+        const inputData = e.inputBuffer.getChannelData(0);
+        // Copy the samples (they get reused)
+        audioChunksRef.current.push(new Float32Array(inputData));
       };
-
-      // Handle recording stop
-      mediaRecorder.onstop = async () => {
-        await sendAudioToBackend();
-        // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      // Start recording
-      mediaRecorder.start();
+      
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+      
       setIsRecording(true);
+      console.log('🎙️ Recording at', audioContext.sampleRate, 'Hz');
 
     } catch (err) {
       console.error('Microphone access denied:', err);
@@ -101,11 +171,27 @@ export default function VoiceChat({ onTranscript, onResponse }: VoiceChatProps) 
     }
   }, []);
 
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
+  const stopRecording = useCallback(async () => {
+    if (!isRecording) return;
+    
+    setIsRecording(false);
+    
+    // Cleanup audio processing
+    if (processorRef.current) {
+      processorRef.current.disconnect();
+      processorRef.current = null;
     }
+    if (audioContextRef.current) {
+      await audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+    
+    // Now process the audio
+    await sendAudioToBackend();
   }, [isRecording]);
 
   const sendAudioToBackend = useCallback(async () => {
@@ -113,14 +199,25 @@ export default function VoiceChat({ onTranscript, onResponse }: VoiceChatProps) 
     setError(null);
 
     try {
-      // Create audio blob
-      const audioBlob = new Blob(audioChunksRef.current, { 
-        type: mediaRecorderRef.current?.mimeType || 'audio/webm' 
-      });
+      // Combine all audio chunks into a single Float32Array
+      const totalLength = audioChunksRef.current.reduce((acc, chunk) => acc + chunk.length, 0);
+      const combinedSamples = new Float32Array(totalLength);
+      let offset = 0;
+      for (const chunk of audioChunksRef.current) {
+        combinedSamples.set(chunk, offset);
+        offset += chunk.length;
+      }
+      
+      const durationSecs = (totalLength / 16000).toFixed(1);
+      console.log(`🎤 Recorded ${durationSecs}s of audio`);
+      
+      // Create WAV blob at 16kHz (33% smaller than 24kHz)
+      const audioBlob = createWavBlob(combinedSamples, 16000);
+      console.log(`📦 WAV size: ${(audioBlob.size / 1024).toFixed(1)}KB`);
 
       // Create form data
       const formData = new FormData();
-      formData.append('audio', audioBlob, 'question.webm');
+      formData.append('audio', audioBlob, 'question.wav');
       formData.append('tradingContext', JSON.stringify(buildTradingContext()));
 
       // Send to backend
@@ -131,7 +228,7 @@ export default function VoiceChat({ onTranscript, onResponse }: VoiceChatProps) 
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Voice chat request failed');
+        throw new Error(errorData.error || `Speech transcription failed: ${response.status}`);
       }
 
       // Get transcript and response text from headers
@@ -231,7 +328,7 @@ export default function VoiceChat({ onTranscript, onResponse }: VoiceChatProps) 
 
       {/* Error Display */}
       {error && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+        <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm max-w-sm">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
@@ -274,14 +371,10 @@ export default function VoiceChat({ onTranscript, onResponse }: VoiceChatProps) 
           {[
             "What's my biggest bias?",
             "How can I improve?",
-            "What's my discipline score?",
+            "What's my cash balance?",
           ].map((question, idx) => (
             <button
               key={idx}
-              onClick={() => {
-                setTranscript(question);
-                // Could auto-trigger if we had text input
-              }}
               className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 text-slate-300 rounded-full transition-colors"
             >
               {question}
@@ -292,4 +385,3 @@ export default function VoiceChat({ onTranscript, onResponse }: VoiceChatProps) 
     </div>
   );
 }
-

@@ -1,19 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { usePortfolioStore } from '@/lib/stores/portfolioStore';
 import { analyzeBiases } from '@/lib/services/biasDetector';
-import { getBiasDefinition } from '@/constants/biasDefinitions';
 import { 
   MessageCircle, 
   Send, 
   Sparkles,
   Brain,
-  AlertTriangle,
   Lightbulb,
   Target,
   Mic,
   Keyboard,
+  Loader2,
 } from 'lucide-react';
 import VoiceChat from '@/components/coach/VoiceChat';
 
@@ -24,7 +23,7 @@ interface Message {
 }
 
 export default function CoachPage() {
-  const { trades, positions, disciplineScore } = usePortfolioStore();
+  const { trades, positions, cashBalance, totalValue, totalPnl, totalPnlPercent } = usePortfolioStore();
   const analysis = analyzeBiases(trades, positions);
   
   const [messages, setMessages] = useState<Message[]>([
@@ -36,6 +35,7 @@ export default function CoachPage() {
   ]);
   const [input, setInput] = useState('');
   const [chatMode, setChatMode] = useState<'voice' | 'text'>('voice');
+  const [isLoading, setIsLoading] = useState(false);
 
   function getWelcomeMessage(score: number, biasCount: number, tradeCount: number): string {
     if (tradeCount < 3) {
@@ -50,8 +50,64 @@ export default function CoachPage() {
     return `I see some areas where we can improve together. Your discipline score is ${score}, but don't worry - that's exactly why I'm here! Let's work on building better habits.`;
   }
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  // Build trading context for the API - includes ALL portfolio info
+  const buildTradingContext = useCallback(() => {
+    const winners = trades.filter(t => (t.pnl || 0) > 0);
+    const losers = trades.filter(t => (t.pnl || 0) < 0);
+    const realizedPnL = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+    const winRate = trades.length > 0 ? (winners.length / trades.length) * 100 : 0;
+
+    return {
+      // Portfolio overview
+      cashBalance,
+      totalPortfolioValue: totalValue,
+      unrealizedPnL: totalPnl,
+      unrealizedPnLPercent: totalPnlPercent,
+      realizedPnL,
+      
+      // Current positions
+      positions: positions.map(p => ({
+        symbol: p.symbol,
+        quantity: p.quantity,
+        avgCost: p.avg_cost,
+        currentPrice: p.current_price,
+        currentValue: p.current_value,
+        pnl: p.pnl,
+        pnlPercent: p.pnl_percent,
+        assetType: p.asset_type,
+      })),
+      
+      // Trade history
+      trades: trades.slice(0, 15).map(t => ({
+        id: t.id,
+        symbol: t.symbol,
+        action: t.action,
+        quantity: t.quantity,
+        price: t.price,
+        pnl: t.pnl,
+        timestamp: t.timestamp,
+        assetType: t.asset_type,
+      })),
+      
+      // Bias analysis
+      biases: analysis.biases.map(b => ({
+        bias_type: b.bias_type,
+        score: b.score,
+        severity: b.severity,
+        intervention: b.intervention,
+      })),
+      disciplineScore: analysis.disciplineScore,
+      
+      // Statistics
+      totalTrades: trades.length,
+      winningTrades: winners.length,
+      losingTrades: losers.length,
+      winRate,
+    };
+  }, [trades, positions, analysis, cashBalance, totalValue, totalPnl, totalPnlPercent]);
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -60,52 +116,48 @@ export default function CoachPage() {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = input;
     setInput('');
+    setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const response = generateResponse(input.toLowerCase(), analysis);
+    try {
+      // Call the chat API with trading context
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: currentInput,
+          tradingContext: buildTradingContext(),
+          conversationHistory: messages.slice(-10), // Last 10 messages for context
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response');
+      }
+
+      const data = await response.json();
+      
       const coachMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'coach',
-        content: response,
+        content: data.response || "I'm having trouble responding right now. Please try again!",
       };
       setMessages(prev => [...prev, coachMessage]);
-    }, 1000);
+    } catch (error) {
+      console.error('Chat error:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'coach',
+        content: "Sorry, I'm having trouble connecting right now. Please try again in a moment! 🔄",
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
-
-  function generateResponse(query: string, analysis: ReturnType<typeof analyzeBiases>): string {
-    const { biases, disciplineScore } = analysis;
-    const topBias = biases[0];
-
-    if (query.includes('bias') || query.includes('problem')) {
-      if (topBias && topBias.score > 30) {
-        const def = getBiasDefinition(topBias.bias_type);
-        return `Your most significant pattern right now is **${def.name}**. ${def.description}\n\n💡 **Try this**: ${def.interventions[0]}`;
-      }
-      return "Great news! I'm not detecting any significant biases in your recent trading. Keep up the disciplined approach!";
-    }
-
-    if (query.includes('score') || query.includes('discipline')) {
-      return `Your discipline score is **${disciplineScore}/100**. ${
-        disciplineScore >= 80 
-          ? "This is excellent! You're trading with great emotional control."
-          : disciplineScore >= 60
-            ? "This is good, but there's room to improve. Focus on consistency."
-            : "There's definitely room for improvement. Let's work on building better habits together."
-      }`;
-    }
-
-    if (query.includes('help') || query.includes('improve')) {
-      return `Here are 3 ways to improve your trading discipline:\n\n1. **Wait before trading** - Take a 10-second pause before each trade\n2. **Set position limits** - Never risk more than 5% on a single trade\n3. **Journal your emotions** - Note how you feel before and after each trade`;
-    }
-
-    if (query.includes('overtrad') || query.includes('too many')) {
-      return "Overtrading is one of the most common behavioral issues! The cure is simple but hard: **trade less, think more**. Try limiting yourself to 3-5 trades per day and see how your results improve.";
-    }
-
-    return "That's a great question! I'm here to help you understand your trading patterns and build better habits. Try asking about your biases, discipline score, or how to improve!";
-  }
 
   // Quick suggestions
   const suggestions = [
@@ -220,6 +272,22 @@ export default function CoachPage() {
               </div>
             </div>
           ))}
+          
+          {/* Typing indicator */}
+          {isLoading && (
+            <div className="flex gap-4">
+              <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div className="bg-white/5 rounded-2xl p-4">
+                <div className="flex gap-1">
+                  <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                  <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                  <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Quick Suggestions */}
@@ -258,10 +326,14 @@ export default function CoachPage() {
             />
             <button
               onClick={handleSend}
-              disabled={!input.trim()}
+              disabled={!input.trim() || isLoading}
               className="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center hover:shadow-lg hover:shadow-indigo-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Send className="w-5 h-5 text-white" />
+              {isLoading ? (
+                <Loader2 className="w-5 h-5 text-white animate-spin" />
+              ) : (
+                <Send className="w-5 h-5 text-white" />
+              )}
             </button>
           </div>
         </div>
