@@ -1,7 +1,9 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { usePortfolioStore } from '@/lib/stores/portfolioStore';
-import { analyzeBiases } from '@/lib/services/biasDetector';
+import useBehaviorReport from '@/hooks/useBehaviorReport';
+import { BiasAnalysisResult } from '@/lib/services/biasDetector';
 import { getBiasDefinition } from '@/constants/biasDefinitions';
 import { getScoreColor, getSeverityColor } from '@/constants/colors';
 import { 
@@ -30,14 +32,37 @@ import {
   StreakChart,
 } from '@/components/charts/TradeCharts';
 
-import { useState } from 'react';
-
 export default function InsightsPage() {
-  const { trades, positions } = usePortfolioStore();
+  const trades = usePortfolioStore((state) => state.trades);
+  const { report } = useBehaviorReport();
   const [showUpload, setShowUpload] = useState(false);
-  
-  // Analyze paper trading data only
-  const analysis = analyzeBiases(trades, positions);
+
+  const analysis: BiasAnalysisResult = useMemo(() => {
+    if (!report) {
+      return {
+        biases: [],
+        disciplineScore: 100,
+        summary: {
+          totalBiases: 0,
+          criticalBiases: 0,
+          highBiases: 0,
+          topConcern: 'none',
+        },
+      };
+    }
+
+    return {
+      biases: report.biases,
+      disciplineScore: report.disciplineScore,
+      summary: {
+        totalBiases: report.biases.length,
+        criticalBiases: report.highlights.criticalCount,
+        highBiases: report.highlights.highCount,
+        topConcern: report.highlights.topConcerns[0]?.bias_type || 'none',
+      },
+    };
+  }, [report]);
+
   const { biases, disciplineScore, summary } = analysis;
   const scoreColor = getScoreColor(disciplineScore);
 
