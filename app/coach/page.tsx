@@ -11,8 +11,11 @@ import {
   Brain,
   AlertTriangle,
   Lightbulb,
-  Target
+  Target,
+  Mic,
+  Keyboard,
 } from 'lucide-react';
+import VoiceChat from '@/components/coach/VoiceChat';
 
 interface Message {
   id: string;
@@ -32,6 +35,7 @@ export default function CoachPage() {
     },
   ]);
   const [input, setInput] = useState('');
+  const [chatMode, setChatMode] = useState<'voice' | 'text'>('voice');
 
   function getWelcomeMessage(score: number, biasCount: number, tradeCount: number): string {
     if (tradeCount < 3) {
@@ -110,15 +114,85 @@ export default function CoachPage() {
     { icon: Lightbulb, text: "How can I improve?" },
   ];
 
+  // Handle voice transcript/response for adding to message history
+  const handleVoiceTranscript = (text: string) => {
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: text,
+    };
+    setMessages(prev => [...prev, userMessage]);
+  };
+
+  const handleVoiceResponse = (text: string) => {
+    const coachMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      role: 'coach',
+      content: text,
+    };
+    setMessages(prev => [...prev, coachMessage]);
+  };
+
   return (
     <div className="min-h-screen p-6 pb-28 lg:pb-6 flex flex-col">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-white mb-1">AI Coach</h1>
-        <p className="text-slate-400">Your personal trading psychology assistant</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-1">AI Coach</h1>
+          <p className="text-slate-400">Your personal trading psychology assistant</p>
+        </div>
+        
+        {/* Mode Toggle */}
+        <div className="flex items-center gap-1 p-1 bg-white/5 rounded-xl">
+          <button
+            onClick={() => setChatMode('voice')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+              chatMode === 'voice'
+                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Mic className="w-4 h-4" />
+            <span className="hidden sm:inline">Voice</span>
+          </button>
+          <button
+            onClick={() => setChatMode('text')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+              chatMode === 'text'
+                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Keyboard className="w-4 h-4" />
+            <span className="hidden sm:inline">Text</span>
+          </button>
+        </div>
       </div>
 
-      {/* Chat Container */}
+      {/* Voice Chat Mode */}
+      {chatMode === 'voice' && (
+        <div className="flex-1 flex flex-col">
+          <div className="glass-card p-8 flex-1 flex flex-col items-center justify-center">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-8 h-8 text-white" />
+              </div>
+              <h2 className="text-xl font-semibold text-white mb-2">Voice Trading Coach</h2>
+              <p className="text-slate-400 text-sm max-w-sm">
+                Tap the microphone and ask about your trading patterns, biases, or how to improve your discipline.
+              </p>
+            </div>
+            
+            <VoiceChat 
+              onTranscript={handleVoiceTranscript}
+              onResponse={handleVoiceResponse}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Text Chat Mode */}
+      {chatMode === 'text' && (
       <div className="flex-1 flex flex-col glass-card overflow-hidden">
         {/* Messages */}
         <div className="flex-1 p-6 overflow-y-auto space-y-6">
@@ -192,6 +266,7 @@ export default function CoachPage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
