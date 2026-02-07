@@ -167,12 +167,9 @@ export default function TradingPage() {
   return (
     <div className="min-h-screen p-6 pb-28 lg:pb-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-1">Paper Trading</h1>
-          <p className="text-slate-400">Practice trading with real-time prices</p>
-        </div>
-        
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-white mb-1">Paper Trading</h1>
+        <p className="text-slate-400">Practice trading with real-time prices</p>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">

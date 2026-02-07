@@ -11,6 +11,10 @@ interface PortfolioState {
   positions: Position[];
   trades: Trade[];
   
+  // Imported trades (separate from paper trading)
+  importedTrades: Trade[];
+  isAnalyzingImported: boolean;
+  
   // Computed values
   totalValue: number;
   totalPnl: number;
@@ -22,6 +26,14 @@ interface PortfolioState {
   executeSell: (symbol: string, quantity: number, price: number, fees: number) => boolean;
   updatePrices: (prices: Record<string, number>) => void;
   resetPortfolio: () => void;
+  
+  // Import actions
+  importTrades: (trades: Trade[]) => void;
+  clearImportedTrades: () => void;
+  setAnalyzingImported: (analyzing: boolean) => void;
+  
+  // Get trades for analysis (either imported or paper trades)
+  getTradesForAnalysis: () => Trade[];
 }
 
 // Starting demo balance
@@ -63,6 +75,8 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
   cashBalance: INITIAL_CASH,
   positions: [],
   trades: [],
+  importedTrades: [],
+  isAnalyzingImported: false,
   totalValue: INITIAL_CASH,
   totalPnl: 0,
   totalPnlPercent: 0,
@@ -291,6 +305,36 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
         asset_type: 'cash' as AssetType,
       }],
     });
+  },
+  
+  // Import trades from uploaded file
+  importTrades: (trades: Trade[]) => {
+    set({
+      importedTrades: trades,
+      isAnalyzingImported: true,
+    });
+  },
+  
+  // Clear imported trades
+  clearImportedTrades: () => {
+    set({
+      importedTrades: [],
+      isAnalyzingImported: false,
+    });
+  },
+  
+  // Toggle analyzing imported vs paper trades
+  setAnalyzingImported: (analyzing: boolean) => {
+    set({ isAnalyzingImported: analyzing });
+  },
+  
+  // Get trades for analysis (imported or paper trading)
+  getTradesForAnalysis: () => {
+    const state = get();
+    if (state.isAnalyzingImported && state.importedTrades.length > 0) {
+      return state.importedTrades;
+    }
+    return state.trades;
   },
 }));
 

@@ -155,84 +155,104 @@ function detectOvertrading(trades: Trade[]): DetectionResult {
 // ============================================
 // 2. Loss Aversion Detector  
 // Research: Odean (1998) - "Are Investors Reluctant to Realize Their Losses?"
-// Key finding: PGR/PLR ratio = 1.51, hold losers 1.5-2.3x longer than winners
+// Kahneman & Tversky - Losses hurt 2-2.5x more than equivalent gains
+// Key indicators: Avg loss > Avg win, letting losses run, cutting winners early
 // ============================================
 
 function detectLossAversion(trades: Trade[]): DetectionResult {
-  const sellTrades = trades.filter(t => t.action === 'SELL');
-  if (sellTrades.length < 2) {
+  if (trades.length < 5) {
     return { score: 0, evidence: {}, intervention: '', affectedTrades: [] };
   }
 
-  const symbolTrades = groupTradesBySymbol(trades);
-  const winnerHoldHours: number[] = [];
-  const loserHoldHours: number[] = [];
-  const affectedTrades: string[] = [];
+  // Separate winning and losing trades
+  const winners = trades.filter(t => (t.pnl || 0) > 0);
+  const losers = trades.filter(t => (t.pnl || 0) < 0);
+  const affectedTrades: string[] = losers.map(t => t.id);
 
-  for (const [, symTrades] of symbolTrades) {
-    const sorted = [...symTrades].sort((a, b) => 
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
-    
-    for (let i = 1; i < sorted.length; i++) {
-      const prev = sorted[i - 1];
-      const curr = sorted[i];
-      
-      if (prev.action === 'BUY' && curr.action === 'SELL') {
-        const holdHours = hoursBetween(prev.timestamp, curr.timestamp);
-        const pnl = (curr.price - prev.price) * prev.quantity;
-        
-        if (pnl > 0) {
-          winnerHoldHours.push(holdHours);
-        } else {
-          loserHoldHours.push(holdHours);
-          affectedTrades.push(curr.id);
-        }
-      }
+  if (winners.length === 0 || losers.length === 0) {
+    return { score: 15, evidence: {}, intervention: 'Not enough mixed results to analyze.', affectedTrades: [] };
+  }
+
+  // Calculate average win and loss sizes
+  const avgWin = winners.reduce((sum, t) => sum + (t.pnl || 0), 0) / winners.length;
+  const avgLoss = Math.abs(losers.reduce((sum, t) => sum + (t.pnl || 0), 0) / losers.length);
+
+  // Loss/Win ratio - loss aversion means avg loss > avg win (letting losses run)
+  const lossWinRatio = avgWin > 0 ? avgLoss / avgWin : 0;
+
+  // Win rate
+  const winRate = (winners.length / trades.length) * 100;
+
+  // Calculate largest loss vs largest win
+  const maxWin = Math.max(...winners.map(t => t.pnl || 0));
+  const maxLoss = Math.abs(Math.min(...losers.map(t => t.pnl || 0)));
+  const maxLossWinRatio = maxWin > 0 ? maxLoss / maxWin : 0;
+
+  // Consecutive loss behavior - do they let losing streaks continue?
+  let maxLossStreak = 0;
+  let currentLossStreak = 0;
+  const sortedTrades = [...trades].sort((a, b) => 
+    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+  
+  for (const trade of sortedTrades) {
+    if ((trade.pnl || 0) < 0) {
+      currentLossStreak++;
+      maxLossStreak = Math.max(maxLossStreak, currentLossStreak);
+    } else {
+      currentLossStreak = 0;
     }
   }
 
-  const avgWinnerHold = winnerHoldHours.length > 0 
-    ? winnerHoldHours.reduce((a, b) => a + b, 0) / winnerHoldHours.length 
-    : 0;
-  const avgLoserHold = loserHoldHours.length > 0 
-    ? loserHoldHours.reduce((a, b) => a + b, 0) / loserHoldHours.length 
-    : 0;
-
-  // Odean methodology: Calculate hold time ratio
-  const holdRatio = avgLoserHold > 0 && avgWinnerHold > 0 
-    ? avgLoserHold / avgWinnerHold 
-    : 0;
-
-  // Percentage of winners sold within 24 hours
-  const winnersSoldQuickly = winnerHoldHours.filter(h => h < 24).length;
-  const pctWinnersSoldQuickly = winnerHoldHours.length > 0 
-    ? (winnersSoldQuickly / winnerHoldHours.length) * 100 
-    : 0;
-
-  // Scoring based on Odean (1998) thresholds
+  // Loss aversion scoring:
+  // - High avg loss vs avg win = letting losses run
+  // - Low win rate with high loss/win ratio = classic loss aversion
+  // - Large max loss = reluctance to cut losses
+  
   let score = 0;
-  if (holdRatio >= 2.0) score = 90; // Severe disposition effect
-  else if (holdRatio >= 1.5) score = 70; // Clear disposition effect (Odean threshold)
-  else if (holdRatio >= 1.2) score = 50; // Moderate
-  else score = 20;
+  
+  // Primary indicator: Loss/Win ratio
+  if (lossWinRatio >= 2.0) score += 40; // Losses 2x bigger than wins
+  else if (lossWinRatio >= 1.5) score += 30;
+  else if (lossWinRatio >= 1.2) score += 20;
+  else score += 10;
+
+  // Secondary: Win rate with unbalanced ratio
+  if (winRate < 50 && lossWinRatio > 1.0) score += 25; // Bad combo
+  else if (winRate < 40) score += 20;
+  else if (winRate < 50) score += 10;
+
+  // Tertiary: Max loss behavior
+  if (maxLossWinRatio >= 3.0) score += 25; // Catastrophic loss
+  else if (maxLossWinRatio >= 2.0) score += 15;
+  else if (maxLossWinRatio >= 1.5) score += 10;
+
+  // Loss streak behavior
+  if (maxLossStreak >= 5) score += 10;
+
+  score = Math.min(100, score);
 
   let intervention = '';
   if (score >= 75) {
-    intervention = `You hold losing positions ${holdRatio.toFixed(1)}x longer than winners. Cut losses faster - losses feel 2.5x more painful than equivalent gains (Prospect Theory).`;
+    intervention = `Critical loss aversion: Avg loss ($${avgLoss.toFixed(0)}) is ${lossWinRatio.toFixed(1)}x larger than avg win ($${avgWin.toFixed(0)}). You're letting losses run while cutting winners early. Set strict stop-losses.`;
   } else if (score >= 50) {
-    intervention = `Tendency to hold losers longer (${holdRatio.toFixed(1)}x ratio). Set stop-losses.`;
+    intervention = `Moderate loss aversion detected. Avg loss ($${avgLoss.toFixed(0)}) exceeds avg win ($${avgWin.toFixed(0)}). Consider tighter stop-losses.`;
+  } else if (score >= 25) {
+    intervention = `Mild loss aversion tendency. Monitor your loss sizes carefully.`;
   } else {
-    intervention = 'Good discipline in cutting losses.';
+    intervention = 'Good balance between wins and losses.';
   }
 
   return {
     score,
     evidence: {
-      avg_winner_hold_hours: Number(avgWinnerHold.toFixed(1)),
-      avg_loser_hold_hours: Number(avgLoserHold.toFixed(1)),
-      hold_ratio: Number(holdRatio.toFixed(2)),
-      pct_winners_sold_within_24h: Number(pctWinnersSoldQuickly.toFixed(1)),
+      avg_win: Number(avgWin.toFixed(2)),
+      avg_loss: Number(avgLoss.toFixed(2)),
+      loss_win_ratio: Number(lossWinRatio.toFixed(2)),
+      win_rate_pct: Number(winRate.toFixed(1)),
+      max_win: Number(maxWin.toFixed(2)),
+      max_loss: Number(maxLoss.toFixed(2)),
+      max_loss_streak: maxLossStreak,
     },
     intervention,
     affectedTrades,
@@ -341,80 +361,99 @@ function detectRevengeTrading(trades: Trade[]): DetectionResult {
 // ============================================
 // 4. Disposition Effect Detector
 // Research: Odean (1998), Kim (2021)
-// PGR/PLR methodology - selling winners too fast while holding losers
+// Disposition effect: Taking small profits quickly, letting losses grow
+// For complete trades: compare win sizes vs loss sizes, and behavior after wins/losses
 // ============================================
 
 function detectDispositionEffect(trades: Trade[]): DetectionResult {
-  if (trades.length < 3) {
+  if (trades.length < 5) {
     return { score: 0, evidence: {}, intervention: '', affectedTrades: [] };
   }
 
-  const symbolTrades = groupTradesBySymbol(trades);
-  const winnerSellTimes: number[] = [];
-  const loserSellTimes: number[] = [];
+  const sorted = [...trades].sort((a, b) => 
+    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+
+  const winners = trades.filter(t => (t.pnl || 0) > 0);
+  const losers = trades.filter(t => (t.pnl || 0) < 0);
   const affectedTrades: string[] = [];
 
-  for (const [, symTrades] of symbolTrades) {
-    const sorted = [...symTrades].sort((a, b) => 
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
+  if (winners.length === 0 || losers.length === 0) {
+    return { score: 10, evidence: {}, intervention: 'Not enough mixed results for disposition analysis.', affectedTrades: [] };
+  }
+
+  // Average win size vs loss size
+  const avgWinSize = winners.reduce((sum, t) => sum + (t.pnl || 0), 0) / winners.length;
+  const avgLossSize = Math.abs(losers.reduce((sum, t) => sum + (t.pnl || 0), 0) / losers.length);
+
+  // Disposition effect: Small wins, big losses
+  // Ratio < 1 means wins are smaller than losses = disposition effect
+  const winLossRatio = avgWinSize / avgLossSize;
+
+  // Check if they exit quickly after a small win (impatience with winners)
+  let quickExitsAfterWin = 0;
+  let totalWinFollowups = 0;
+  
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const curr = sorted[i];
+    const next = sorted[i + 1];
     
-    for (let i = 1; i < sorted.length; i++) {
-      const buyTrade = sorted[i - 1];
-      const sellTrade = sorted[i];
-      
-      if (buyTrade.action === 'BUY' && sellTrade.action === 'SELL') {
-        const holdHours = hoursBetween(buyTrade.timestamp, sellTrade.timestamp);
-        const pnl = (sellTrade.price - buyTrade.price) * buyTrade.quantity;
-        
-        if (pnl > 0) {
-          winnerSellTimes.push(holdHours);
-          // Track if selling winners too quickly (within 24h when profitable)
-          if (holdHours < 24) {
-            affectedTrades.push(sellTrade.id);
-          }
-        } else {
-          loserSellTimes.push(holdHours);
-        }
+    if ((curr.pnl || 0) > 0) {
+      totalWinFollowups++;
+      const timeBetween = minutesBetween(curr.timestamp, next.timestamp);
+      // Quick trade after a win (within 5 minutes) suggests taking quick profits
+      if (timeBetween < 5) {
+        quickExitsAfterWin++;
+        affectedTrades.push(curr.id);
       }
     }
   }
 
-  if (winnerSellTimes.length === 0 || loserSellTimes.length === 0) {
-    return { score: 10, evidence: {}, intervention: 'Not enough data for disposition analysis.', affectedTrades: [] };
-  }
+  const pctQuickAfterWin = totalWinFollowups > 0 ? (quickExitsAfterWin / totalWinFollowups) * 100 : 0;
 
-  const avgWinnerSellTime = winnerSellTimes.reduce((a, b) => a + b, 0) / winnerSellTimes.length;
-  const avgLoserSellTime = loserSellTimes.reduce((a, b) => a + b, 0) / loserSellTimes.length;
+  // Check for profit taking pattern: many small wins
+  const smallWins = winners.filter(t => (t.pnl || 0) < avgWinSize * 0.5).length;
+  const pctSmallWins = (smallWins / winners.length) * 100;
 
-  // Disposition effect: Selling winners faster than cutting losers
-  const dispositionRatio = avgLoserSellTime / avgWinnerSellTime;
-
-  // Proportion sold quickly
-  const pctWinnersSoldWithin24h = (winnerSellTimes.filter(h => h < 24).length / winnerSellTimes.length) * 100;
-
+  // Scoring
   let score = 0;
-  if (dispositionRatio >= 2.0 && pctWinnersSoldWithin24h > 50) score = 85;
-  else if (dispositionRatio >= 1.5 || pctWinnersSoldWithin24h > 60) score = 65;
-  else if (dispositionRatio >= 1.2 || pctWinnersSoldWithin24h > 40) score = 40;
-  else score = 15;
+
+  // Win/Loss ratio < 1 means taking smaller profits than losses
+  if (winLossRatio < 0.5) score += 40; // Wins half the size of losses
+  else if (winLossRatio < 0.75) score += 30;
+  else if (winLossRatio < 1.0) score += 20;
+  else score += 5;
+
+  // Many small wins = cutting winners early
+  if (pctSmallWins > 60) score += 25;
+  else if (pctSmallWins > 40) score += 15;
+  else score += 5;
+
+  // Quick trading after wins
+  if (pctQuickAfterWin > 50) score += 20;
+  else if (pctQuickAfterWin > 30) score += 10;
+
+  score = Math.min(100, score);
 
   let intervention = '';
   if (score >= 75) {
-    intervention = `Selling winners ${pctWinnersSoldWithin24h.toFixed(0)}% of time within 24h while holding losers ${dispositionRatio.toFixed(1)}x longer. Let winners run!`;
+    intervention = `Strong disposition effect: Avg win ($${avgWinSize.toFixed(0)}) is only ${(winLossRatio * 100).toFixed(0)}% of avg loss ($${avgLossSize.toFixed(0)}). Let winners run longer!`;
   } else if (score >= 50) {
-    intervention = 'Tendency to sell winners too quickly. Consider trailing stops instead of quick exits.';
+    intervention = `Disposition effect detected: Taking profits too quickly. ${pctSmallWins.toFixed(0)}% of wins are below average.`;
+  } else if (score >= 25) {
+    intervention = 'Mild disposition tendency. Consider using trailing stops to let winners run.';
   } else {
-    intervention = 'Good patience with winning positions.';
+    intervention = 'Good balance between letting winners run and cutting losses.';
   }
 
   return {
     score,
     evidence: {
-      avg_winner_hold_hours: Number(avgWinnerSellTime.toFixed(1)),
-      avg_loser_hold_hours: Number(avgLoserSellTime.toFixed(1)),
-      disposition_ratio: Number(dispositionRatio.toFixed(2)),
-      pct_winners_sold_within_24h: Number(pctWinnersSoldWithin24h.toFixed(1)),
+      avg_win_size: Number(avgWinSize.toFixed(2)),
+      avg_loss_size: Number(avgLossSize.toFixed(2)),
+      win_loss_ratio: Number(winLossRatio.toFixed(2)),
+      pct_small_wins: Number(pctSmallWins.toFixed(1)),
+      pct_quick_after_win: Number(pctQuickAfterWin.toFixed(1)),
     },
     intervention,
     affectedTrades,

@@ -12,12 +12,31 @@ import {
   ChevronRight,
   Sparkles,
   Target,
-  Zap
+  Zap,
+  Upload,
+  ChevronDown,
+  ChevronUp,
+  BarChart3,
 } from 'lucide-react';
+import TradeHistoryUpload from '@/components/trading/TradeHistoryUpload';
+import {
+  CumulativePnLChart,
+  WinLossChart,
+  TradingFrequencyChart,
+  BiasRadarChart,
+  TradeSizeChart,
+  AssetPnLChart,
+  DrawdownChart,
+  StreakChart,
+} from '@/components/charts/TradeCharts';
+
+import { useState } from 'react';
 
 export default function InsightsPage() {
   const { trades, positions } = usePortfolioStore();
+  const [showUpload, setShowUpload] = useState(false);
   
+  // Analyze paper trading data only
   const analysis = analyzeBiases(trades, positions);
   const { biases, disciplineScore, summary } = analysis;
   const scoreColor = getScoreColor(disciplineScore);
@@ -32,10 +51,27 @@ export default function InsightsPage() {
   return (
     <div className="min-h-screen p-6 pb-28 lg:pb-6">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-1">Insights</h1>
-        <p className="text-slate-400">Your trading psychology analysis</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-1">Insights</h1>
+          <p className="text-slate-400">Your trading psychology analysis</p>
+        </div>
+        <button
+          onClick={() => setShowUpload(!showUpload)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30 transition-all border border-indigo-500/30"
+        >
+          <Upload className="w-4 h-4" />
+          <span className="hidden sm:inline">Analyze File</span>
+          {showUpload ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
       </div>
+
+      {/* Upload Panel for Analyzing External Trading History */}
+      {showUpload && (
+        <div className="mb-6 animate-fade-in">
+          <TradeHistoryUpload />
+        </div>
+      )}
 
       {/* Discipline Score Card */}
       <div className="glass-card p-8 mb-8">
@@ -110,6 +146,35 @@ export default function InsightsPage() {
           <p className="text-slate-400 text-xs mt-1">Healthy</p>
         </div>
       </div>
+
+      {/* Graphical Insights Section */}
+      {trades.length >= 3 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 className="w-5 h-5 text-indigo-400" />
+            <h2 className="text-xl font-semibold text-white">Graphical Insights</h2>
+          </div>
+          
+          {/* Row 1: Main Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            <CumulativePnLChart trades={trades} height={200} />
+            <BiasRadarChart analysis={analysis} height={250} />
+          </div>
+          
+          {/* Row 2: Distribution Charts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+            <WinLossChart trades={trades} height={180} />
+            <TradingFrequencyChart trades={trades} height={180} />
+            <AssetPnLChart trades={trades} height={180} />
+          </div>
+          
+          {/* Row 3: Performance Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <DrawdownChart trades={trades} height={180} />
+            <TradeSizeChart trades={trades} height={180} />
+          </div>
+        </div>
+      )}
 
       {/* Biases List */}
       <div className="space-y-4">
