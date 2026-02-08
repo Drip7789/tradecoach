@@ -75,7 +75,7 @@ export default function SettingsPage() {
   const handleReset = () => {
     resetPortfolio();
     setShowResetConfirm(false);
-    toast.success('Portfolio Reset', 'Your portfolio has been reset to $100,000');
+    toast.success('Portfolio Reset', 'Your portfolio has been reset to $10,000');
   };
 
   const handleClearAll = () => {
@@ -208,7 +208,7 @@ export default function SettingsPage() {
             <SettingRow
               icon={<RotateCcw className="w-5 h-5 text-amber-400" />}
               title="Reset Portfolio"
-              description="Start fresh with $100,000"
+              description="Start fresh with $10,000"
               onClick={() => setShowResetConfirm(true)}
             />
             
@@ -252,7 +252,7 @@ export default function SettingsPage() {
             </div>
             <h3 className="text-xl font-bold text-white text-center mb-2">Reset Portfolio?</h3>
             <p className="text-slate-400 text-center mb-6">
-              This will clear all your trades and reset your balance to $100,000.
+              This will clear all your trades and reset your balance to $10,000.
             </p>
             <div className="flex gap-3">
               <button

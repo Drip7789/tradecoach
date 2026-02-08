@@ -3,11 +3,14 @@
 import { useEffect } from 'react';
 import useBehaviorReport from '@/hooks/useBehaviorReport';
 import { useGrowthStore } from '@/lib/stores/growthStore';
+import { usePortfolioStore } from '@/lib/stores/portfolioStore';
 import { BehaviorReport } from '@/lib/services/behaviorReport';
+import { formatCurrency } from '@/lib/utils/formatters';
 import { BiasDetection, Severity } from '@/types';
 
 export default function GrowthPage() {
   const { report } = useBehaviorReport();
+  const depositCash = usePortfolioStore((state) => state.depositCash);
   const {
     xp,
     streakDays,
@@ -20,6 +23,7 @@ export default function GrowthPage() {
     evaluateFromReport,
     applyDailyGrowth,
     simulateDay,
+    claimIncome,
     upgradeSystem,
     forceReevaluate,
     getTreeStage,
@@ -67,6 +71,8 @@ export default function GrowthPage() {
     { id: 'stage-golden', title: 'Golden Era Tree', description: 'Reach Golden Tree stage (1500 growth)' },
   ] as const;
   const unlockedById = new Map(achievements.map((item) => [item.id, item]));
+  const safeUnclaimedIncome = Number.isFinite(tree.unclaimedIncome) ? tree.unclaimedIncome : 0;
+  const hasUnclaimedIncome = safeUnclaimedIncome > 0;
 
   const makeMockBiases = (count: number, severity: Severity = 'high'): BiasDetection[] => {
     return Array.from({ length: count }, (_, idx) => ({
@@ -108,6 +114,13 @@ export default function GrowthPage() {
   const runDevEvaluation = (disciplineScore: number, highSeverityCount: number) => {
     forceReevaluate();
     evaluateFromReport(makeMockReport(disciplineScore, highSeverityCount));
+  };
+
+  const handleClaimIncome = () => {
+    const amount = claimIncome();
+    if (amount > 0) {
+      depositCash(amount);
+    }
   };
 
   return (
@@ -155,7 +168,18 @@ export default function GrowthPage() {
           <p className="text-theme-muted">
             Total Passive Income: <span className="text-theme-growth font-semibold">{tree.totalPassiveIncome.toFixed(2)}</span>
           </p>
+          <p className="text-theme-muted">
+            Unclaimed Income: <span className="text-theme-growth font-semibold">{formatCurrency(safeUnclaimedIncome)}</span>
+          </p>
         </div>
+
+        <button
+          onClick={handleClaimIncome}
+          disabled={!hasUnclaimedIncome}
+          className="mt-4 px-4 py-2 rounded-lg bg-blueSmoke text-white hover:bg-[#5f7f76] transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Claim Income
+        </button>
       </div>
 
       <div className="glass-card p-5 mb-4">

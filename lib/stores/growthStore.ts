@@ -28,6 +28,7 @@ interface GrowthState {
     soilLevel: number;
     lastGrowthDate: string | null;
     totalPassiveIncome: number;
+    unclaimedIncome: number;
   };
 
   evaluateFromReport: (report: BehaviorReport) => void;
@@ -36,6 +37,7 @@ interface GrowthState {
   getIncomePerHour: () => number;
   applyDailyGrowth: () => void;
   simulateDay: () => void;
+  claimIncome: () => number;
   upgradeSystem: (type: 'water' | 'sun' | 'soil') => boolean;
   forceReevaluate: () => void;
   resetAll: () => void;
@@ -69,6 +71,7 @@ const INITIAL_TREE_STATE = {
   soilLevel: 0,
   lastGrowthDate: null as string | null,
   totalPassiveIncome: 0,
+  unclaimedIncome: 0,
 };
 const ACHIEVEMENTS = {
   streak70_5: {
@@ -295,19 +298,23 @@ export const useGrowthStore = create<GrowthState>()(
 
       getGrowthRate: () => {
         const { tree } = get();
-        const waterBonus = tree.waterLevel * 0.05;
-        const sunBonus = tree.sunLevel * 0.07;
+        const waterLevel = toFiniteNumber(tree.waterLevel, 0);
+        const sunLevel = toFiniteNumber(tree.sunLevel, 0);
+        const waterBonus = waterLevel * 0.05;
+        const sunBonus = sunLevel * 0.07;
         return Math.max(0, toFiniteNumber(1 * (1 + waterBonus + sunBonus), 1));
       },
 
       getIncomePerHour: () => {
         const { tree } = get();
-        const stage = getStageByProgress(tree.growthProgress);
+        const growthProgress = toFiniteNumber(tree.growthProgress, 0);
+        const soilLevel = toFiniteNumber(tree.soilLevel, 0);
+        const stage = getStageByProgress(growthProgress);
         const stageMultiplier = getStageMultiplier(stage);
         const baseIncome = 1;
         return Math.max(
           0,
-          toFiniteNumber(baseIncome * (1 + tree.soilLevel * 0.10) * stageMultiplier, 0)
+          toFiniteNumber(baseIncome * (1 + soilLevel * 0.10) * stageMultiplier, 0)
         );
       },
 
@@ -346,7 +353,14 @@ export const useGrowthStore = create<GrowthState>()(
           tree: {
             ...tree,
             growthProgress: nextGrowthProgress,
-            totalPassiveIncome: Math.max(0, tree.totalPassiveIncome + incomePerHour * hours),
+            totalPassiveIncome: Math.max(
+              0,
+              toFiniteNumber(tree.totalPassiveIncome, 0) + incomePerHour * hours
+            ),
+            unclaimedIncome: Math.max(
+              0,
+              toFiniteNumber(tree.unclaimedIncome, 0) + incomePerHour * hours
+            ),
             lastGrowthDate: nowIso,
           },
         });
@@ -374,10 +388,32 @@ export const useGrowthStore = create<GrowthState>()(
           tree: {
             ...tree,
             growthProgress: nextGrowthProgress,
-            totalPassiveIncome: Math.max(0, tree.totalPassiveIncome + incomePerHour * hours),
+            totalPassiveIncome: Math.max(
+              0,
+              toFiniteNumber(tree.totalPassiveIncome, 0) + incomePerHour * hours
+            ),
+            unclaimedIncome: Math.max(
+              0,
+              toFiniteNumber(tree.unclaimedIncome, 0) + incomePerHour * hours
+            ),
             lastGrowthDate: nowIso,
           },
         });
+      },
+
+      claimIncome: () => {
+        const state = get();
+        const claimable = Math.max(0, toFiniteNumber(state.tree.unclaimedIncome, 0));
+        if (claimable <= 0) return 0;
+
+        set({
+          tree: {
+            ...state.tree,
+            unclaimedIncome: 0,
+          },
+        });
+
+        return claimable;
       },
 
       upgradeSystem: (type: 'water' | 'sun' | 'soil') => {

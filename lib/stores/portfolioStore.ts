@@ -24,6 +24,7 @@ interface PortfolioState {
   // Actions
   executeBuy: (symbol: string, quantity: number, price: number, fees: number, assetType: AssetType) => boolean;
   executeSell: (symbol: string, quantity: number, price: number, fees: number) => boolean;
+  depositCash: (amount: number) => void;
   updatePrices: (prices: Record<string, number>) => void;
   resetPortfolio: () => void;
   
@@ -37,7 +38,7 @@ interface PortfolioState {
 }
 
 // Starting demo balance
-const INITIAL_CASH = 100000;
+const INITIAL_CASH = 10000;
 
 // Calculate allocations including cash
 const calculateAllocations = (positions: Position[], cashBalance: number, totalValue: number): AssetAllocation[] => {
@@ -287,6 +288,23 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
       allocations: calculateAllocations(newPositions, state.cashBalance, newTotalValue),
     });
   },
+
+  // Deposit funds without creating trades (used for claiming growth income)
+  depositCash: (amount: number) => {
+    const state = get();
+    const safeAmount = Number(amount);
+    if (!Number.isFinite(safeAmount) || safeAmount <= 0) return;
+
+    const newCashBalance = state.cashBalance + safeAmount;
+    const positionsValue = state.positions.reduce((sum, p) => sum + p.current_value, 0);
+    const newTotalValue = newCashBalance + positionsValue;
+
+    set({
+      cashBalance: newCashBalance,
+      totalValue: newTotalValue,
+      allocations: calculateAllocations(state.positions, newCashBalance, newTotalValue),
+    });
+  },
   
   // Reset to initial state
   resetPortfolio: () => {
@@ -339,4 +357,3 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
 }));
 
 export default usePortfolioStore;
-
