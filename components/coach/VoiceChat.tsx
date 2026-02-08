@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { usePortfolioStore } from '@/lib/stores/portfolioStore';
-import { analyzeBiases } from '@/lib/services/biasDetector';
+import { CoachTradingContext } from '@/lib/services/coachContext';
 import { 
   Mic, 
   Square, 
@@ -13,6 +12,7 @@ import {
 } from 'lucide-react';
 
 interface VoiceChatProps {
+  tradingContext?: CoachTradingContext;
   onTranscript?: (text: string) => void;
   onResponse?: (text: string) => void;
 }
@@ -53,10 +53,7 @@ function createWavBlob(samples: Float32Array, sampleRate: number): Blob {
   return new Blob([buffer], { type: 'audio/wav' });
 }
 
-export default function VoiceChat({ onTranscript, onResponse }: VoiceChatProps) {
-  const { trades, positions, cashBalance, totalValue, totalPnl, totalPnlPercent } = usePortfolioStore();
-  const analysis = analyzeBiases(trades, positions);
-
+export default function VoiceChat({ tradingContext, onTranscript, onResponse }: VoiceChatProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -69,61 +66,6 @@ export default function VoiceChat({ onTranscript, onResponse }: VoiceChatProps) 
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const audioChunksRef = useRef<Float32Array[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Build trading context to send to API - includes ALL portfolio info
-  const buildTradingContext = useCallback(() => {
-    const winners = trades.filter(t => (t.pnl || 0) > 0);
-    const losers = trades.filter(t => (t.pnl || 0) < 0);
-    const realizedPnL = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-    const winRate = trades.length > 0 ? (winners.length / trades.length) * 100 : 0;
-
-    return {
-      // Portfolio overview
-      cashBalance,
-      totalPortfolioValue: totalValue,
-      unrealizedPnL: totalPnl,
-      unrealizedPnLPercent: totalPnlPercent,
-      realizedPnL,
-      
-      // Current positions
-      positions: positions.map(p => ({
-        symbol: p.symbol,
-        quantity: p.quantity,
-        avgCost: p.avg_cost,
-        currentPrice: p.current_price,
-        currentValue: p.current_value,
-        pnl: p.pnl,
-        pnlPercent: p.pnl_percent,
-        assetType: p.asset_type,
-      })),
-      
-      // Trade history
-      trades: trades.slice(0, 10).map(t => ({
-        id: t.id,
-        symbol: t.symbol,
-        action: t.action,
-        quantity: t.quantity,
-        price: t.price,
-        pnl: t.pnl,
-        timestamp: t.timestamp,
-      })),
-      
-      // Bias analysis
-      biases: analysis.biases.map(b => ({
-        bias_type: b.bias_type,
-        score: b.score,
-        severity: b.severity,
-        intervention: b.intervention,
-      })),
-      disciplineScore: analysis.disciplineScore,
-      
-      // Statistics
-      totalTrades: trades.length,
-      winningTrades: winners.length,
-      losingTrades: losers.length,
-      winRate,
-    };
-  }, [trades, positions, analysis, cashBalance, totalValue, totalPnl, totalPnlPercent]);
 
   const startRecording = useCallback(async () => {
     try {
@@ -218,7 +160,7 @@ export default function VoiceChat({ onTranscript, onResponse }: VoiceChatProps) 
       // Create form data
       const formData = new FormData();
       formData.append('audio', audioBlob, 'question.wav');
-      formData.append('tradingContext', JSON.stringify(buildTradingContext()));
+      formData.append('tradingContext', JSON.stringify(tradingContext || {}));
 
       // Send to backend
       const response = await fetch('/api/voice/chat', {
@@ -262,7 +204,7 @@ export default function VoiceChat({ onTranscript, onResponse }: VoiceChatProps) 
     } finally {
       setIsProcessing(false);
     }
-  }, [buildTradingContext, onTranscript, onResponse]);
+  }, [tradingContext, onTranscript, onResponse]);
 
   const handleAudioEnded = useCallback(() => {
     setIsPlaying(false);

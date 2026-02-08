@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { usePortfolioStore } from '@/lib/stores/portfolioStore';
-import { analyzeBiases } from '@/lib/services/biasDetector';
+import useBehaviorReport from '@/hooks/useBehaviorReport';
+import { buildCoachContext } from '@/lib/services/coachContext';
 import { 
   MessageCircle, 
   Send, 
@@ -24,13 +25,15 @@ interface Message {
 
 export default function CoachPage() {
   const { trades, positions, cashBalance, totalValue, totalPnl, totalPnlPercent } = usePortfolioStore();
-  const analysis = analyzeBiases(trades, positions);
+  const { report } = useBehaviorReport();
+  const disciplineScore = report?.disciplineScore ?? 100;
+  const biasCount = report?.biases.length ?? 0;
   
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
       role: 'coach',
-      content: getWelcomeMessage(analysis.disciplineScore, analysis.biases.length, trades.length),
+      content: getWelcomeMessage(disciplineScore, biasCount, trades.length),
     },
   ]);
   const [input, setInput] = useState('');
@@ -50,61 +53,18 @@ export default function CoachPage() {
     return `I see some areas where we can improve together. Your discipline score is ${score}, but don't worry - that's exactly why I'm here! Let's work on building better habits.`;
   }
 
-  // Build trading context for the API - includes ALL portfolio info
-  const buildTradingContext = useCallback(() => {
-    const winners = trades.filter(t => (t.pnl || 0) > 0);
-    const losers = trades.filter(t => (t.pnl || 0) < 0);
-    const realizedPnL = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-    const winRate = trades.length > 0 ? (winners.length / trades.length) * 100 : 0;
-
-    return {
-      // Portfolio overview
+  const tradingContext = useMemo(() => {
+    return buildCoachContext({
+      report,
+      trades,
+      positions,
       cashBalance,
-      totalPortfolioValue: totalValue,
-      unrealizedPnL: totalPnl,
-      unrealizedPnLPercent: totalPnlPercent,
-      realizedPnL,
-      
-      // Current positions
-      positions: positions.map(p => ({
-        symbol: p.symbol,
-        quantity: p.quantity,
-        avgCost: p.avg_cost,
-        currentPrice: p.current_price,
-        currentValue: p.current_value,
-        pnl: p.pnl,
-        pnlPercent: p.pnl_percent,
-        assetType: p.asset_type,
-      })),
-      
-      // Trade history
-      trades: trades.slice(0, 15).map(t => ({
-        id: t.id,
-        symbol: t.symbol,
-        action: t.action,
-        quantity: t.quantity,
-        price: t.price,
-        pnl: t.pnl,
-        timestamp: t.timestamp,
-        assetType: t.asset_type,
-      })),
-      
-      // Bias analysis
-      biases: analysis.biases.map(b => ({
-        bias_type: b.bias_type,
-        score: b.score,
-        severity: b.severity,
-        intervention: b.intervention,
-      })),
-      disciplineScore: analysis.disciplineScore,
-      
-      // Statistics
-      totalTrades: trades.length,
-      winningTrades: winners.length,
-      losingTrades: losers.length,
-      winRate,
-    };
-  }, [trades, positions, analysis, cashBalance, totalValue, totalPnl, totalPnlPercent]);
+      totalValue,
+      totalPnl,
+      totalPnlPercent,
+      tradeLimit: 15,
+    });
+  }, [report, trades, positions, cashBalance, totalValue, totalPnl, totalPnlPercent]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -129,7 +89,7 @@ export default function CoachPage() {
         },
         body: JSON.stringify({
           message: currentInput,
-          tradingContext: buildTradingContext(),
+          tradingContext,
           conversationHistory: messages.slice(-10), // Last 10 messages for context
         }),
       });
@@ -191,7 +151,7 @@ export default function CoachPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-white mb-1">AI Coach</h1>
-          <p className="text-slate-400">Your personal trading psychology assistant</p>
+          <p className="text-slate-400">Golden Era coaching: build discipline, not dopamine habits.</p>
         </div>
         
         {/* Mode Toggle */}
@@ -235,7 +195,8 @@ export default function CoachPage() {
               </p>
             </div>
             
-            <VoiceChat 
+            <VoiceChat
+              tradingContext={tradingContext}
               onTranscript={handleVoiceTranscript}
               onResponse={handleVoiceResponse}
             />

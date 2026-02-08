@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useSettingsStore } from '@/lib/stores/settingsStore';
 import { usePortfolioStore } from '@/lib/stores/portfolioStore';
+import { useGrowthStore } from '@/lib/stores/growthStore';
 import { toast } from '@/components/shared/Toast';
 import { 
   User, 
@@ -67,7 +68,8 @@ function Toggle({ enabled, onChange }: { enabled: boolean; onChange: () => void 
 
 export default function SettingsPage() {
   const settings = useSettingsStore();
-  const { reset: resetPortfolio } = usePortfolioStore();
+  const resetPortfolio = usePortfolioStore((state) => state.resetPortfolio);
+  const resetGrowth = useGrowthStore((state) => state.resetAll);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const handleReset = () => {
@@ -77,8 +79,17 @@ export default function SettingsPage() {
   };
 
   const handleClearAll = () => {
+    const confirmed = window.confirm(
+      'Clear all app data? This will reset portfolio and Growth Mode progression.'
+    );
+    if (!confirmed) return;
+
     resetPortfolio();
-    settings.reset();
+    resetGrowth();
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('biascoach-settings');
+    }
+    settings.setShowConnectionIndicator(true);
     toast.success('Data Cleared', 'All trades and settings have been deleted');
   };
 

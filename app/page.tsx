@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { usePortfolioStore } from '@/lib/stores/portfolioStore';
+import useBehaviorReport from '@/hooks/useBehaviorReport';
 import { formatCurrency, formatCompact, formatPercent } from '@/lib/utils/formatters';
 import { getScoreColor } from '@/constants/colors';
-import { analyzeBiases } from '@/lib/services/biasDetector';
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from 'recharts';
 import { 
   TrendingUp, 
@@ -39,10 +39,10 @@ const renderActiveShape = (props: any) => {
 
 export default function HomePage() {
   const { totalValue, totalPnl, totalPnlPercent, cashBalance, positions, allocations, trades } = usePortfolioStore();
+  const { report } = useBehaviorReport();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  
-  const analysis = analyzeBiases(trades, positions);
-  const disciplineScore = analysis.disciplineScore;
+
+  const disciplineScore = report?.disciplineScore ?? 100;
   const scoreColor = getScoreColor(disciplineScore);
 
   const maxAllocation = allocations.length > 0 
@@ -76,7 +76,7 @@ export default function HomePage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-1">Dashboard</h1>
-        <p className="text-slate-400">Your trading psychology overview</p>
+        <p className="text-slate-400">Golden Era: discipline and sustainable habits over dopamine.</p>
       </div>
 
       {/* Main Stats Row */}
