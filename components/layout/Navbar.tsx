@@ -9,7 +9,6 @@ import {
   MessageCircle, 
   Settings,
   Sprout,
-  TreePine,
   Zap
 } from 'lucide-react';
 
@@ -31,8 +30,13 @@ export default function Navbar() {
       <aside className="hidden lg:flex flex-col fixed left-0 top-0 h-screen w-72 glass-card border-r border-ivoryBrown p-6 z-40 shadow-md">
         {/* Logo */}
         <div className="mb-10 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blueSmoke to-emerald-500 border border-theme-soft flex items-center justify-center shadow-md glow-green">
-            <TreePine className="w-5 h-5 text-lime-100" />
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-600 via-emerald-500 to-lime-400 border border-emerald-400/30 flex items-center justify-center shadow-lg shadow-emerald-500/25">
+            <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" strokeLinecap="round" strokeLinejoin="round">
+              {/* Pine tree - three tiers */}
+              <path d="M12 3L7 9h2L5 15h3l-2 5h12l-2-5h3l-4-6h2L12 3z" fill="rgba(255,255,255,0.95)" />
+              {/* Trunk */}
+              <rect x="10" y="20" width="4" height="2" rx="0.5" fill="rgba(255,255,255,0.7)" />
+            </svg>
           </div>
           <div>
             <h1 className="text-xl font-extrabold text-theme-main tracking-tight">Money Trees</h1>

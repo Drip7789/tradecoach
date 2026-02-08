@@ -224,7 +224,7 @@ export default function VoiceChat({ tradingContext, onTranscript, onResponse }: 
         
         {/* Playing indicator */}
         {isPlaying && (
-          <div className="absolute inset-[-8px] rounded-full border-2 border-indigo-500/50 animate-pulse" />
+          <div className="absolute inset-[-8px] rounded-full border-2 border-emerald-500/50 animate-pulse" />
         )}
 
         <button
@@ -236,10 +236,10 @@ export default function VoiceChat({ tradingContext, onTranscript, onResponse }: 
             ${isRecording 
               ? 'bg-gradient-to-br from-red-500 to-red-600 shadow-lg shadow-red-500/40 scale-110' 
               : isProcessing
-                ? 'bg-slate-700 cursor-wait'
+                ? 'bg-blueSmoke/50 cursor-wait'
                 : isPlaying
-                  ? 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/40'
-                  : 'bg-gradient-to-br from-indigo-500 to-purple-600 hover:shadow-lg hover:shadow-indigo-500/40 hover:scale-105'
+                  ? 'bg-gradient-to-br from-emerald-600 to-emerald-500 shadow-lg shadow-emerald-500/40'
+                  : 'bg-gradient-to-br from-emerald-600 via-emerald-500 to-lime-400 hover:shadow-lg hover:shadow-emerald-500/40 hover:scale-105'
             }
             disabled:opacity-70 disabled:cursor-not-allowed
           `}
@@ -286,12 +286,12 @@ export default function VoiceChat({ tradingContext, onTranscript, onResponse }: 
 
       {/* Last Response */}
       {responseText && !isRecording && !isProcessing && !isPlaying && (
-        <div className="w-full max-w-sm p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
+        <div className="w-full max-w-sm p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
           <div className="flex items-center gap-1.5 mb-1">
-            <Volume2 className="w-3 h-3 text-indigo-400" />
-            <p className="text-xs text-indigo-400">Coach said:</p>
+            <Volume2 className="w-3 h-3 text-emerald-400" />
+            <p className="text-xs text-emerald-400">Coach said:</p>
           </div>
-          <p className="text-white text-sm">{responseText}</p>
+          <p className="text-theme-main text-sm">{responseText}</p>
         </div>
       )}
 

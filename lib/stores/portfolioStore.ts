@@ -40,7 +40,7 @@ interface PortfolioState {
 }
 
 // Starting demo balance
-const INITIAL_CASH = 10000;
+const INITIAL_CASH = 15000;
 const HISTORY_INTERVAL_MS = 30_000;
 const PORTFOLIO_HISTORY_CAP = 500;
 const EQUITY_EPSILON = 0.01;

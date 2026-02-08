@@ -155,12 +155,12 @@ export default function CoachPage() {
         </div>
         
         {/* Mode Toggle */}
-        <div className="flex items-center gap-1 p-1 bg-white/5 rounded-xl">
+        <div className="flex items-center gap-1 p-1 bg-theme-surface-2 border border-theme-soft rounded-xl">
           <button
             onClick={() => setChatMode('voice')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
               chatMode === 'voice'
-                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white'
+                ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-sm'
                 : 'text-theme-muted hover:text-theme-main'
             }`}
           >
@@ -171,7 +171,7 @@ export default function CoachPage() {
             onClick={() => setChatMode('text')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
               chatMode === 'text'
-                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white'
+                ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-sm'
                 : 'text-theme-muted hover:text-theme-main'
             }`}
           >
@@ -186,7 +186,7 @@ export default function CoachPage() {
         <div className="flex-1 flex flex-col">
           <div className="glass-card p-8 flex-1 flex flex-col items-center justify-center">
             <div className="text-center mb-8">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-500 to-lime-400 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/25">
                 <Sparkles className="w-8 h-8 text-white" />
               </div>
               <h2 className="text-xl font-semibold text-theme-main mb-2">Voice Trading Coach</h2>
@@ -216,18 +216,18 @@ export default function CoachPage() {
             >
               <div className={`w-10 h-10 rounded-xl shrink-0 flex items-center justify-center ${
                 message.role === 'coach'
-                  ? 'bg-gradient-to-br from-indigo-500 to-purple-600'
-                  : 'bg-white/10'
+                  ? 'bg-gradient-to-br from-emerald-600 to-emerald-500'
+                  : 'bg-theme-surface-2 border border-theme-soft'
               }`}>
                 {message.role === 'coach' 
                   ? <Sparkles className="w-5 h-5 text-white" />
-                  : <MessageCircle className="w-5 h-5 text-slate-300" />
+                  : <MessageCircle className="w-5 h-5 text-theme-main" />
                 }
               </div>
               <div className={`max-w-[80%] rounded-2xl p-4 ${
                 message.role === 'coach'
-                  ? 'bg-white/5'
-                  : 'bg-indigo-500/20'
+                  ? 'bg-theme-surface-2 border border-theme-soft'
+                  : 'bg-emerald-500/15 border border-emerald-500/20'
               }`}>
                 <p className="text-theme-main text-sm whitespace-pre-line">{message.content}</p>
               </div>
@@ -237,10 +237,10 @@ export default function CoachPage() {
           {/* Typing indicator */}
           {isLoading && (
             <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
+              <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center bg-gradient-to-br from-emerald-600 to-emerald-500">
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
-              <div className="bg-white/5 rounded-2xl p-4">
+              <div className="bg-theme-surface-2 border border-theme-soft rounded-2xl p-4">
                 <div className="flex gap-1">
                   <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                   <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
@@ -263,9 +263,9 @@ export default function CoachPage() {
                     onClick={() => {
                       setInput(suggestion.text);
                     }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-theme-main text-sm transition-all"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-theme-surface-2 border border-theme-soft hover:bg-mild text-theme-main text-sm transition-all"
                   >
-                    <Icon className="w-4 h-4 text-indigo-400" />
+                    <Icon className="w-4 h-4 text-emerald-500" />
                     {suggestion.text}
                   </button>
                 );
@@ -288,7 +288,7 @@ export default function CoachPage() {
             <button
               onClick={handleSend}
               disabled={!input.trim() || isLoading}
-              className="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center hover:shadow-lg hover:shadow-indigo-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-500 flex items-center justify-center hover:shadow-lg hover:shadow-emerald-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 text-white animate-spin" />

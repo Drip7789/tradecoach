@@ -295,22 +295,25 @@ export default function GrowthPage() {
 
       {isDev && (
         <div className="glass-card p-5 mt-4">
-          <p className="text-theme-main font-semibold mb-3">Dev Tools</p>
-          <p className="text-theme-muted text-sm mb-3">
+          <p className="text-theme-main font-semibold mb-3 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+            Dev Tools
+          </p>
+          <p className="text-theme-muted text-sm mb-4">
             Test XP and streak behavior with mock report inputs.
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={() => runDevEvaluation(75, 0)}
-              className="px-3 py-2 rounded-lg border border-emerald-300 bg-emerald-100 text-emerald-800 hover:bg-emerald-200 transition-colors"
+              className="px-4 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 transition-all text-sm font-medium"
             >
-              Simulate Good Day
+              ✓ Good Day
             </button>
             <button
               onClick={() => runDevEvaluation(45, 3)}
-              className="px-3 py-2 rounded-lg border border-red-300 bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+              className="px-4 py-2 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 transition-all text-sm font-medium"
             >
-              Simulate Bad Day
+              ✗ Bad Day
             </button>
             <button
               onClick={() => {
@@ -318,15 +321,15 @@ export default function GrowthPage() {
                 const nextHigh = Math.max((previousHighSeverityCount ?? 2) - 1, 0);
                 runDevEvaluation(nextScore, nextHigh);
               }}
-              className="px-3 py-2 rounded-lg border border-theme-soft bg-theme-surface-2 text-theme-main hover:bg-mild transition-colors"
+              className="px-4 py-2 rounded-xl bg-blueSmoke/15 border border-blueSmoke/30 text-blueSmoke hover:bg-blueSmoke/25 transition-all text-sm font-medium"
             >
-              Simulate Improvement
+              ↑ Improvement
             </button>
             <button
               onClick={forceReevaluate}
-              className="px-3 py-2 rounded-lg border border-amber-300 bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors"
+              className="px-4 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 transition-all text-sm font-medium"
             >
-              Force Re-evaluate Today
+              ⟳ Re-evaluate
             </button>
           </div>
         </div>

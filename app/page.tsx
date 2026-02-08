@@ -252,9 +252,7 @@ export default function HomePage() {
 
                 {/* Center Content */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <div className="px-4 py-2 rounded-xl border border-theme-soft bg-theme-surface shadow-md">
-                    <p className="text-3xl font-bold text-theme-main">{formatCompact(totalValue)}</p>
-                  </div>
+                  <p className="text-3xl font-bold text-theme-main">{formatCompact(totalValue)}</p>
                   <p className={`text-sm font-medium ${totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     {totalPnl >= 0 ? '+' : ''}{formatPercent(totalPnlPercent)}
                   </p>

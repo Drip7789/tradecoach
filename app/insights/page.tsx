@@ -83,7 +83,7 @@ export default function InsightsPage() {
         </div>
         <button
           onClick={() => setShowUpload(!showUpload)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blueSmoke text-white hover:bg-[#5f7f76] transition-all border border-blueSmoke shadow-md"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 text-white hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
         >
           <Upload className="w-4 h-4" />
           <span className="hidden sm:inline">Analyze File</span>
