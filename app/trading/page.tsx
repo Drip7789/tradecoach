@@ -303,6 +303,7 @@ export default function TradingPage() {
               )}
             </div>
           )}
+
         </div>
 
         {/* Right Column - Order Form */}

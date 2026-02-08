@@ -20,6 +20,8 @@ interface PortfolioState {
   totalPnl: number;
   totalPnlPercent: number;
   allocations: AssetAllocation[];
+  portfolioHistory: { t: number; equity: number }[];
+  lastPortfolioHistoryTs: number | null;
   
   // Actions
   executeBuy: (symbol: string, quantity: number, price: number, fees: number, assetType: AssetType) => boolean;
@@ -39,6 +41,9 @@ interface PortfolioState {
 
 // Starting demo balance
 const INITIAL_CASH = 10000;
+const HISTORY_INTERVAL_MS = 30_000;
+const PORTFOLIO_HISTORY_CAP = 500;
+const EQUITY_EPSILON = 0.01;
 
 // Calculate allocations including cash
 const calculateAllocations = (positions: Position[], cashBalance: number, totalValue: number): AssetAllocation[] => {
@@ -81,6 +86,8 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
   totalValue: INITIAL_CASH,
   totalPnl: 0,
   totalPnlPercent: 0,
+  portfolioHistory: [],
+  lastPortfolioHistoryTs: null,
   allocations: [{
     symbol: 'Cash',
     value: INITIAL_CASH,
@@ -259,6 +266,7 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
   // Update prices for all positions
   updatePrices: (prices: Record<string, number>) => {
     const state = get();
+    const now = Date.now();
     
     const newPositions = state.positions.map(position => {
       const newPrice = prices[position.symbol] || prices[position.symbol.toUpperCase()] || position.current_price;
@@ -279,12 +287,23 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
     const totalCostBasis = newPositions.reduce((sum, p) => sum + (p.avg_cost * p.quantity), 0);
     const newTotalPnl = newPositions.reduce((sum, p) => sum + p.pnl, 0);
     const newTotalPnlPercent = totalCostBasis > 0 ? (newTotalPnl / totalCostBasis) * 100 : 0;
+    const lastEquityPoint = state.portfolioHistory[state.portfolioHistory.length - 1];
+    const lastTs = state.lastPortfolioHistoryTs ?? 0;
+    const elapsed = now - lastTs;
+    const equityChanged =
+      !lastEquityPoint || Math.abs(lastEquityPoint.equity - newTotalValue) >= EQUITY_EPSILON;
+    const shouldAppendHistory = elapsed >= HISTORY_INTERVAL_MS && equityChanged;
+    const nextPortfolioHistory = shouldAppendHistory
+      ? [...state.portfolioHistory, { t: now, equity: newTotalValue }].slice(-PORTFOLIO_HISTORY_CAP)
+      : state.portfolioHistory;
     
     set({
       positions: newPositions,
       totalValue: newTotalValue,
       totalPnl: newTotalPnl,
       totalPnlPercent: newTotalPnlPercent,
+      portfolioHistory: nextPortfolioHistory,
+      lastPortfolioHistoryTs: shouldAppendHistory ? now : state.lastPortfolioHistoryTs,
       allocations: calculateAllocations(newPositions, state.cashBalance, newTotalValue),
     });
   },
@@ -315,6 +334,8 @@ export const usePortfolioStore = create<PortfolioState>((set, get) => ({
       totalValue: INITIAL_CASH,
       totalPnl: 0,
       totalPnlPercent: 0,
+      portfolioHistory: [],
+      lastPortfolioHistoryTs: null,
       allocations: [{
         symbol: 'Cash',
         value: INITIAL_CASH,
