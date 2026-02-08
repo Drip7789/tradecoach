@@ -36,6 +36,24 @@ const COLORS = {
   accent: '#739187',
 };
 
+// Max data points for charts (prevents browser freeze with large datasets)
+const MAX_CHART_POINTS = 500;
+
+// Sample large arrays to prevent rendering too many points
+function sampleData<T>(data: T[], maxPoints: number = MAX_CHART_POINTS): T[] {
+  if (data.length <= maxPoints) return data;
+  const step = Math.ceil(data.length / maxPoints);
+  const sampled: T[] = [];
+  for (let i = 0; i < data.length; i += step) {
+    sampled.push(data[i]);
+  }
+  // Always include the last point
+  if (sampled[sampled.length - 1] !== data[data.length - 1]) {
+    sampled.push(data[data.length - 1]);
+  }
+  return sampled;
+}
+
 const PIE_COLORS = ['#10B981', '#EF4444', '#F59E0B', '#6366F1', '#EC4899', '#14B8A6'];
 
 // ============================================
@@ -53,7 +71,7 @@ export function CumulativePnLChart({ trades, height = 200 }: PnLChartProps) {
     );
     
     let cumulative = 0;
-    return sorted.map((trade, idx) => {
+    const fullData = sorted.map((trade, idx) => {
       cumulative += trade.pnl || 0;
       return {
         index: idx + 1,
@@ -62,6 +80,9 @@ export function CumulativePnLChart({ trades, height = 200 }: PnLChartProps) {
         tradePnl: trade.pnl || 0,
       };
     });
+    
+    // Sample for large datasets
+    return sampleData(fullData);
   }, [trades]);
 
   if (trades.length === 0) return null;
@@ -319,11 +340,13 @@ export function TradeSizeChart({ trades, height = 200 }: TradeSizeChartProps) {
       new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
     
-    return sorted.map((trade, idx) => ({
+    const fullData = sorted.map((trade, idx) => ({
       index: idx + 1,
       size: trade.total_value,
       isLoss: (trade.pnl || 0) < 0,
     }));
+    
+    return sampleData(fullData);
   }, [trades]);
 
   if (trades.length === 0) return null;
@@ -467,7 +490,7 @@ export function DrawdownChart({ trades, height = 200 }: DrawdownChartProps) {
     let cumulative = 0;
     let peak = 0;
     
-    return sorted.map((trade, idx) => {
+    const fullData = sorted.map((trade, idx) => {
       cumulative += trade.pnl || 0;
       peak = Math.max(peak, cumulative);
       const drawdown = peak > 0 ? ((cumulative - peak) / peak) * 100 : 0;
@@ -478,6 +501,8 @@ export function DrawdownChart({ trades, height = 200 }: DrawdownChartProps) {
         cumulative,
       };
     });
+    
+    return sampleData(fullData);
   }, [trades]);
 
   if (trades.length === 0) return null;
