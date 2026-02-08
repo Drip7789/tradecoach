@@ -36,6 +36,21 @@ const MILESTONES = [
   { id: 'golden_habit_sapling', xp: 300 },
 ];
 const GROWTH_STORAGE_KEY = 'biascoach-growth';
+const XP_MODEL = {
+  baseScale: 120,
+  highSeverityPenalty: 15,
+  riskEscalationPenalty: 20,
+  concentrationPenalty: 15,
+  disciplineImprovementThreshold: 5,
+  disciplineImprovementBonus: 10,
+  highSeverityImprovementBonus: 5,
+  streakMultiplierStep: 0.03,
+  streakMultiplierCapDays: 10,
+  streakIncrementMinDiscipline: 70,
+  streakIncrementMaxHighSeverity: 1,
+  streakResetDiscipline: 60,
+  streakResetHighSeverity: 3,
+} as const;
 const INITIAL_TREE_STATE = {
   growthProgress: 0,
   waterLevel: 0,
@@ -57,6 +72,22 @@ function countHighSeverity(report: BehaviorReport): number {
   return report.biases.filter(
     (bias) => bias.severity === 'high' || bias.severity === 'critical'
   ).length;
+}
+
+function getRiskPenalty(report: BehaviorReport): number {
+  let penalty = 0;
+  for (const bias of report.biases) {
+    const isHighRiskSeverity = bias.severity === 'high' || bias.severity === 'critical';
+    if (!isHighRiskSeverity) continue;
+
+    if (bias.bias_type === 'risk_escalation') {
+      penalty += XP_MODEL.riskEscalationPenalty;
+    }
+    if (bias.bias_type === 'concentration_bias') {
+      penalty += XP_MODEL.concentrationPenalty;
+    }
+  }
+  return penalty;
 }
 
 function toFiniteNumber(value: number, fallback: number = 0): number {
@@ -106,36 +137,43 @@ export const useGrowthStore = create<GrowthState>()(
         // Support older persisted snapshots where these keys may be undefined.
         const prevDiscipline = state.previousDisciplineScore ?? null;
         const prevHighSeverity = state.previousHighSeverityCount ?? null;
-        const hasBaseline = prevDiscipline !== null && prevHighSeverity !== null;
+        const riskPenalty = getRiskPenalty(report);
 
-        let xpGain = 0;
+        const normalizedDiscipline = Math.max(0, Math.min(100, currentDiscipline)) / 100;
+        const baseXP = Math.round(normalizedDiscipline * normalizedDiscipline * XP_MODEL.baseScale);
+        const penalty = currentHighSeverity * XP_MODEL.highSeverityPenalty;
 
-        // First-ever evaluation: grant baseline XP for reasonably disciplined behavior.
-        if (!hasBaseline && currentDiscipline >= 60) {
-          xpGain += 20;
+        let improvementBonus = 0;
+        if (
+          prevDiscipline !== null &&
+          currentDiscipline >= prevDiscipline + XP_MODEL.disciplineImprovementThreshold
+        ) {
+          improvementBonus += XP_MODEL.disciplineImprovementBonus;
         }
-
-        if (prevDiscipline !== null && currentDiscipline > prevDiscipline) {
-          xpGain += 10 + Math.min(10, currentDiscipline - prevDiscipline);
-        }
-
         if (prevHighSeverity !== null && currentHighSeverity < prevHighSeverity) {
-          xpGain += 15 + (prevHighSeverity - currentHighSeverity) * 5;
+          improvementBonus += XP_MODEL.highSeverityImprovementBonus;
         }
 
-        // Small daily bonus when discipline remains strong.
-        if (currentDiscipline >= 70 && hasBaseline) {
-          xpGain += 5;
-        }
+        const streakMultiplier =
+          1 + Math.min(state.streakDays, XP_MODEL.streakMultiplierCapDays) * XP_MODEL.streakMultiplierStep;
+
+        const xpGain = Math.max(
+          0,
+          Math.round((baseXP - penalty - riskPenalty + improvementBonus) * streakMultiplier)
+        );
 
         let nextStreak = state.streakDays;
-        if (prevDiscipline === null) {
-          nextStreak = 1;
-        } else if (currentDiscipline >= prevDiscipline) {
-          nextStreak = state.streakDays + 1;
-        } else if (prevDiscipline - currentDiscipline >= 8) {
-          // Significant discipline drop resets streak.
+        const qualifiesForStreak =
+          currentDiscipline >= XP_MODEL.streakIncrementMinDiscipline &&
+          currentHighSeverity <= XP_MODEL.streakIncrementMaxHighSeverity;
+        const shouldResetStreak =
+          currentDiscipline < XP_MODEL.streakResetDiscipline ||
+          currentHighSeverity >= XP_MODEL.streakResetHighSeverity;
+
+        if (shouldResetStreak) {
           nextStreak = 0;
+        } else if (qualifiesForStreak) {
+          nextStreak = state.streakDays + 1;
         }
 
         const nextXp = Math.max(0, toFiniteNumber(state.xp, 0) + toFiniteNumber(xpGain, 0));
