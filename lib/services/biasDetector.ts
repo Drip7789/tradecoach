@@ -244,8 +244,8 @@ function detectLossAversion(trades: Trade[]): DetectionResult {
   const winRate = (winners.length / trades.length) * 100;
 
   // Calculate largest loss vs largest win
-  const maxWin = Math.max(...winners.map(t => t.pnl || 0));
-  const maxLoss = Math.abs(Math.min(...losers.map(t => t.pnl || 0)));
+  const maxWin = winners.reduce((max, t) => (t.pnl || 0) > max ? (t.pnl || 0) : max, 0);
+  const maxLoss = Math.abs(losers.reduce((min, t) => (t.pnl || 0) < min ? (t.pnl || 0) : min, 0));
   const maxLossWinRatio = maxWin > 0 ? maxLoss / maxWin : 0;
 
   // Consecutive loss behavior - do they let losing streaks continue?

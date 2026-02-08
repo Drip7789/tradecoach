@@ -66,8 +66,8 @@ export function CumulativePnLChart({ trades, height = 200 }: PnLChartProps) {
 
   if (trades.length === 0) return null;
 
-  const minPnl = Math.min(...data.map(d => d.pnl));
-  const maxPnl = Math.max(...data.map(d => d.pnl));
+  const minPnl = data.reduce((min, d) => d.pnl < min ? d.pnl : min, data[0]?.pnl ?? 0);
+  const maxPnl = data.reduce((max, d) => d.pnl > max ? d.pnl : max, data[0]?.pnl ?? 0);
   const isPositive = data[data.length - 1]?.pnl >= 0;
 
   return (
@@ -482,7 +482,7 @@ export function DrawdownChart({ trades, height = 200 }: DrawdownChartProps) {
 
   if (trades.length === 0) return null;
 
-  const maxDrawdown = Math.min(...data.map(d => d.drawdown));
+  const maxDrawdown = data.reduce((min, d) => d.drawdown < min ? d.drawdown : min, data[0]?.drawdown ?? 0);
 
   return (
     <div className="glass-card p-4">
