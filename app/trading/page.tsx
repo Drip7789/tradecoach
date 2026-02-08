@@ -168,8 +168,8 @@ export default function TradingPage() {
     <div className="min-h-screen p-6 pb-28 lg:pb-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-1">Paper Trading</h1>
-        <p className="text-slate-400">Practice trading with real-time prices</p>
+        <h1 className="text-3xl font-bold text-theme-main mb-1">Paper Trading</h1>
+        <p className="text-theme-muted">Practice trading with real-time prices</p>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
@@ -188,7 +188,7 @@ export default function TradingPage() {
 
           {/* Asset Selection */}
           <div className="glass-card p-6">
-            <label className="text-white font-semibold mb-4 block">Select Asset</label>
+            <label className="text-theme-main font-semibold mb-4 block">Select Asset</label>
             
             {/* Search */}
             <div className="relative mb-4">
@@ -198,7 +198,7 @@ export default function TradingPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search stocks, forex, commodities..."
-                className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-slate-500 focus:border-indigo-500 transition-all"
+                className="w-full pl-12 pr-4 py-3 bg-theme-surface-2 border border-theme-soft rounded-xl text-theme-main placeholder:text-theme-muted focus:border-blueSmoke focus:ring-2 focus:ring-blueSmoke/20 transition-all"
               />
             </div>
 
@@ -206,7 +206,7 @@ export default function TradingPage() {
             <div className="max-h-64 overflow-y-auto space-y-2">
               {isLoadingList && Object.keys(listPrices).length === 0 ? (
                 <div className="flex items-center justify-center py-8">
-                  <RefreshCw className="w-5 h-5 text-indigo-400 animate-spin" />
+                  <RefreshCw className="w-5 h-5 text-theme-accent animate-spin" />
                   <span className="ml-2 text-slate-400 text-sm">Loading prices...</span>
                 </div>
               ) : filteredAssets.slice(0, 10).map((asset) => {
@@ -220,32 +220,32 @@ export default function TradingPage() {
                     }}
                     className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${
                       selectedSymbol === asset.symbol
-                        ? 'bg-indigo-500/20 border border-indigo-500/50'
-                        : 'bg-white/5 hover:bg-white/10 border border-transparent'
+                        ? 'bg-mild border border-blueSmoke'
+                        : 'bg-theme-surface-2 hover:bg-mild border border-theme-soft'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        asset.type === 'stocks' ? 'bg-blue-500/20' :
-                        asset.type === 'forex' ? 'bg-purple-500/20' :
-                        asset.type === 'commodities' ? 'bg-amber-500/20' : 'bg-slate-500/20'
+                        asset.type === 'stocks' ? 'bg-blueSmoke/25' :
+                        asset.type === 'forex' ? 'bg-limeSoft/30' :
+                        asset.type === 'commodities' ? 'bg-amber-500/20' : 'bg-antiqueIvory'
                       }`}>
                         <span className={`text-xs font-bold ${
-                          asset.type === 'stocks' ? 'text-blue-400' :
-                          asset.type === 'forex' ? 'text-purple-400' :
-                          asset.type === 'commodities' ? 'text-amber-400' : 'text-slate-400'
+                          asset.type === 'stocks' ? 'text-blueSmoke' :
+                          asset.type === 'forex' ? 'text-limeSoft' :
+                          asset.type === 'commodities' ? 'text-amber-500' : 'text-theme-muted'
                         }`}>
                           {asset.symbol.slice(0, 3)}
                         </span>
                       </div>
                       <div className="text-left">
-                        <p className="text-white font-medium">{asset.symbol}</p>
+                        <p className="text-theme-main font-medium">{asset.symbol}</p>
                         <p className="text-slate-400 text-xs">{asset.name}</p>
                       </div>
                     </div>
                     <div className="text-right">
                       {assetPrice !== null && assetPrice !== undefined ? (
-                        <span className="text-emerald-400 font-semibold">
+                        <span className="text-emerald-700 font-semibold">
                           {asset.type === 'forex' ? assetPrice.toFixed(4) : formatCurrency(assetPrice)}
                         </span>
                       ) : (
@@ -263,7 +263,7 @@ export default function TradingPage() {
             <div className={`p-5 rounded-xl border ${priceError ? 'border-red-500/50 bg-red-500/10' : 'gradient-border'}`}>
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-2xl font-bold text-white">{selectedSymbol}</p>
+                  <p className="text-2xl font-bold text-theme-main">{selectedSymbol}</p>
                   <p className="text-slate-400 text-sm">{selectedAsset?.name}</p>
                   {position && (
                     <div className="flex items-center gap-1 mt-2 text-emerald-400 text-sm">
@@ -286,10 +286,10 @@ export default function TradingPage() {
                   ) : price ? (
                     <>
                       <div className="flex items-center gap-2 justify-end mb-1">
-                        <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                        <p className="text-emerald-400 text-xs font-medium">Live Price</p>
+                        <span className="w-2 h-2 bg-emerald-600 rounded-full animate-pulse" />
+                        <p className="text-emerald-700 text-xs font-medium">Live Price</p>
                       </div>
-                      <p className="text-2xl font-bold text-emerald-400">
+                      <p className="text-2xl font-bold text-emerald-700">
                         {selectedAsset?.type === 'forex' ? price.toFixed(4) : formatCurrency(price)}
                       </p>
                     </>
@@ -314,7 +314,7 @@ export default function TradingPage() {
               className={`flex-1 py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${
                 mode === 'BUY'
                   ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white glow-green'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  : 'text-theme-muted hover:text-theme-main hover:bg-theme-surface-2'
               }`}
             >
               <TrendingUp className="w-5 h-5" />
@@ -325,7 +325,7 @@ export default function TradingPage() {
               className={`flex-1 py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${
                 mode === 'SELL'
                   ? 'bg-gradient-to-r from-red-500 to-red-600 text-white glow-red'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  : 'text-theme-muted hover:text-theme-main hover:bg-theme-surface-2'
               }`}
             >
               <TrendingDown className="w-5 h-5" />
@@ -335,13 +335,13 @@ export default function TradingPage() {
 
           {/* Quantity Input */}
           <div className="glass-card p-6">
-            <label className="text-white font-semibold mb-4 block">Quantity</label>
+            <label className="text-theme-main font-semibold mb-4 block">Quantity</label>
             <input
               type="number"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               placeholder="Enter amount"
-              className="w-full p-4 bg-white/5 border border-white/10 rounded-xl text-white text-center text-2xl font-bold focus:border-indigo-500"
+              className="w-full p-4 bg-theme-surface-2 border border-theme-soft rounded-xl text-theme-main text-center text-2xl font-bold focus:border-blueSmoke focus:ring-2 focus:ring-blueSmoke/20"
             />
             
             {/* Quick amounts */}
@@ -350,7 +350,7 @@ export default function TradingPage() {
                 <button
                   key={amt}
                   onClick={() => setQuantity(amt.toString())}
-                  className="py-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-sm font-medium transition-all"
+                  className="py-2 rounded-lg bg-theme-surface-2 hover:bg-mild border border-theme-soft text-theme-main text-sm font-medium transition-all"
                 >
                   {amt}
                 </button>
@@ -375,16 +375,16 @@ export default function TradingPage() {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-slate-400">{qty} × {formatCurrency(price)}</span>
-                  <span className="text-white">{formatCurrency(total)}</span>
+                  <span className="text-theme-main">{formatCurrency(total)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Fee (0.1%)</span>
-                  <span className="text-white">{formatCurrency(fee)}</span>
+                  <span className="text-theme-main">{formatCurrency(fee)}</span>
                 </div>
-                <div className="h-px bg-white/10" />
+                <div className="h-px bg-theme-surface-2 border-t border-theme-soft" />
                 <div className="flex justify-between">
-                  <span className="text-white font-semibold">Total</span>
-                  <span className="text-xl font-bold text-white">
+                  <span className="text-theme-main font-semibold">Total</span>
+                  <span className="text-xl font-bold text-theme-main">
                     {formatCurrency(mode === 'BUY' ? total + fee : total - fee)}
                   </span>
                 </div>
@@ -401,7 +401,7 @@ export default function TradingPage() {
                 ? mode === 'BUY'
                   ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:shadow-lg hover:shadow-emerald-500/30'
                   : 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:shadow-lg hover:shadow-red-500/30'
-                : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                : 'bg-theme-surface-2 border border-theme-soft text-theme-muted cursor-not-allowed'
             }`}
           >
             <Zap className="w-5 h-5" />
@@ -420,7 +420,7 @@ export default function TradingPage() {
           {/* Positions */}
           {positions.length > 0 && (
             <div className="glass-card p-6">
-              <h3 className="text-white font-semibold mb-4">Your Positions</h3>
+              <h3 className="text-theme-main font-semibold mb-4">Your Positions</h3>
               <div className="space-y-2">
                 {positions.map((p) => {
                   // Use position's current_value which is updated by central PriceUpdater
@@ -434,11 +434,11 @@ export default function TradingPage() {
                       className="w-full flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all"
                     >
                       <div className="text-left">
-                        <p className="text-white font-medium">{p.symbol}</p>
+                        <p className="text-theme-main font-medium">{p.symbol}</p>
                         <p className="text-slate-400 text-xs">{p.quantity} units @ {formatCurrency(p.avg_cost)}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-white">{formatCurrency(p.current_value)}</p>
+                        <p className="text-theme-main">{formatCurrency(p.current_value)}</p>
                         <p className={`text-xs flex items-center gap-1 justify-end ${
                           p.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'
                         }`}>

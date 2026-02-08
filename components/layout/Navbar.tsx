@@ -8,6 +8,8 @@ import {
   Brain, 
   MessageCircle, 
   Settings,
+  Sprout,
+  TreePine,
   Zap
 } from 'lucide-react';
 
@@ -16,6 +18,7 @@ const navItems = [
   { href: '/insights', label: 'Insights', icon: Brain },
   { href: '/trading', label: 'Trade', icon: TrendingUp, isMain: true },
   { href: '/coach', label: 'Coach', icon: MessageCircle },
+  { href: '/growth', label: 'Growth', icon: Sprout },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -25,15 +28,15 @@ export default function Navbar() {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col fixed left-0 top-0 h-screen w-72 glass-card border-r border-white/5 p-6 z-40">
+      <aside className="hidden lg:flex flex-col fixed left-0 top-0 h-screen w-72 glass-card border-r border-ivoryBrown p-6 z-40 shadow-md">
         {/* Logo */}
         <div className="mb-10 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center glow-purple">
-            <Zap className="w-5 h-5 text-white" />
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blueSmoke to-emerald-500 border border-theme-soft flex items-center justify-center shadow-md glow-green">
+            <TreePine className="w-5 h-5 text-lime-100" />
           </div>
           <div>
-            <h1 className="text-xl font-bold gradient-text">BiasCoach</h1>
-            <p className="text-xs text-slate-500">Trading Psychology</p>
+            <h1 className="text-xl font-extrabold text-theme-main tracking-tight">Money Trees</h1>
+            <p className="text-xs text-theme-accent font-medium">Discipline Compounds</p>
           </div>
         </div>
 
@@ -49,14 +52,14 @@ export default function Navbar() {
                 href={item.href}
                 className={`flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300 group ${
                   isActive
-                    ? 'bg-gradient-to-r from-indigo-500/20 to-purple-500/10 text-white border border-indigo-500/30'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-blueSmoke text-white border border-blueSmoke ring-1 ring-blueSmoke/50 shadow-md shadow-blueSmoke/30'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-mild'
                 }`}
               >
-                <Icon className={`w-5 h-5 transition-colors ${isActive ? 'text-indigo-400' : 'group-hover:text-indigo-400'}`} />
+                <Icon className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'group-hover:text-blueSmoke'}`} />
                 <span className="font-medium">{item.label}</span>
                 {isActive && (
-                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-400 pulse-glow" />
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-limeSoft pulse-glow" />
                 )}
               </Link>
             );
@@ -66,19 +69,19 @@ export default function Navbar() {
         {/* Pro Card */}
         <div className="gradient-border p-4 mt-4">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-limeSoft flex items-center justify-center">
               <Zap className="w-4 h-4 text-white" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">QHacks 2026</p>
-              <p className="text-xs text-slate-400">National Bank Challenge</p>
+              <p className="text-sm font-semibold text-theme-main">QHacks 2026</p>
+              <p className="text-xs text-theme-muted">National Bank Challenge</p>
             </div>
           </div>
         </div>
       </aside>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 glass-card border-t border-white/10 z-50">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 glass-card border-t border-ivoryBrown z-50">
         <div className="flex justify-around items-center h-20 px-2">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
@@ -94,8 +97,8 @@ export default function Navbar() {
                 >
                   <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${
                     isActive 
-                      ? 'bg-gradient-to-br from-indigo-500 to-purple-600 glow-purple' 
-                      : 'bg-gradient-to-br from-slate-700 to-slate-800 hover:from-indigo-500 hover:to-purple-600'
+                      ? 'bg-blueSmoke glow-purple' 
+                      : 'bg-ivoryBrown hover:bg-blueSmoke'
                   }`}>
                     <Icon className="w-7 h-7 text-white" />
                   </div>
@@ -110,8 +113,10 @@ export default function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center py-2 px-4 transition-all duration-300 ${
-                  isActive ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'
+                className={`flex flex-col items-center py-2 px-4 rounded-xl border transition-all duration-300 ${
+                  isActive
+                    ? 'text-blueSmoke bg-mild border-blueSmoke shadow-sm'
+                    : 'text-text-secondary border-transparent hover:text-text-primary hover:bg-theme-surface-2'
                 }`}
               >
                 <Icon className="w-6 h-6 mb-1" />

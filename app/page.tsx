@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { usePortfolioStore } from '@/lib/stores/portfolioStore';
 import useBehaviorReport from '@/hooks/useBehaviorReport';
 import { formatCurrency, formatCompact, formatPercent } from '@/lib/utils/formatters';
 import { getScoreColor } from '@/constants/colors';
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from 'recharts';
-import { 
+import {
   TrendingUp, 
   Shield, 
   PieChart as PieChartIcon,
@@ -16,6 +16,15 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from 'lucide-react';
+
+const NATURAL_CHART_PALETTE = [
+  '#739187',
+  '#7FBF87',
+  '#AFC99B',
+  '#8AA88D',
+  '#B3978D',
+  '#D1BE97',
+];
 
 // Active shape renderer for hover effect
 const renderActiveShape = (props: any) => {
@@ -31,7 +40,7 @@ const renderActiveShape = (props: any) => {
         startAngle={startAngle}
         endAngle={endAngle}
         fill={fill}
-        style={{ filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.3))' }}
+        style={{ filter: 'drop-shadow(0 0 12px rgba(127, 191, 135, 0.55))' }}
       />
     </g>
   );
@@ -50,24 +59,48 @@ export default function HomePage() {
     : 100;
   const diversityScore = Math.round(100 - maxAllocation);
 
-  // Add cash to allocations for the chart
-  const cashAllocation = (cashBalance / totalValue) * 100;
-  const chartData = allocations.length > 0 
-    ? [
-        ...allocations.map(a => ({ 
-          ...a, 
-          value: a.percentage,
-          actualValue: (a.percentage / 100) * totalValue 
-        })),
-        ...(cashAllocation > 1 ? [{
-          symbol: 'Cash',
-          value: cashAllocation,
-          percentage: cashAllocation,
-          color: '#64748B',
-          actualValue: cashBalance
-        }] : [])
-      ]
-    : [{ symbol: 'Cash', value: 100, percentage: 100, color: '#64748B', actualValue: cashBalance }];
+  // Add cash to allocations for the chart with a consistent natural palette.
+  const chartData = useMemo(() => {
+    const safeTotal = totalValue > 0 ? totalValue : 1;
+    const cashAllocation = (cashBalance / safeTotal) * 100;
+    const isCashSymbol = (symbol?: string) => (symbol || '').trim().toLowerCase() === 'cash';
+
+    if (allocations.length > 0) {
+      const nonCashAllocations = allocations.filter((allocation) => !isCashSymbol(allocation.symbol));
+      const existingCashAllocation = allocations
+        .filter((allocation) => isCashSymbol(allocation.symbol))
+        .reduce((sum, allocation) => sum + allocation.percentage, 0);
+      const effectiveCashAllocation = existingCashAllocation > 0 ? existingCashAllocation : cashAllocation;
+
+      const mappedAllocations = nonCashAllocations.map((allocation, index) => ({
+        ...allocation,
+        color: NATURAL_CHART_PALETTE[index % NATURAL_CHART_PALETTE.length],
+        value: allocation.percentage,
+        actualValue: (allocation.percentage / 100) * totalValue,
+      }));
+
+      return [
+        ...mappedAllocations,
+        ...(effectiveCashAllocation > 1
+          ? [{
+              symbol: 'Cash',
+              value: effectiveCashAllocation,
+              percentage: effectiveCashAllocation,
+              color: '#8B9A8A',
+              actualValue: cashBalance,
+            }]
+          : []),
+      ];
+    }
+
+    return [{
+      symbol: 'Cash',
+      value: 100,
+      percentage: 100,
+      color: '#8B9A8A',
+      actualValue: cashBalance,
+    }];
+  }, [allocations, cashBalance, totalValue]);
 
   const hoveredData = activeIndex !== null ? chartData[activeIndex] : null;
 
@@ -75,8 +108,8 @@ export default function HomePage() {
     <div className="min-h-screen p-6 pb-28 lg:pb-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-1">Dashboard</h1>
-        <p className="text-slate-400">Golden Era: discipline and sustainable habits over dopamine.</p>
+        <h1 className="text-3xl font-bold text-theme-main mb-1">Dashboard</h1>
+        <p className="text-theme-muted">Golden Era: discipline and sustainable habits over dopamine.</p>
       </div>
 
       {/* Main Stats Row */}
@@ -85,8 +118,8 @@ export default function HomePage() {
         <div className="col-span-2 stat-card">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center">
-                <Wallet className="w-5 h-5 text-indigo-400" />
+              <div className="w-10 h-10 rounded-xl bg-blueSmoke/15 border border-theme-soft flex items-center justify-center">
+                <Wallet className="w-5 h-5 text-blueSmoke" />
               </div>
               <span className="text-slate-400 text-sm">Portfolio Value</span>
             </div>
@@ -128,10 +161,11 @@ export default function HomePage() {
       {/* Chart and Allocations */}
       <div className="grid lg:grid-cols-2 gap-6 mb-8">
         {/* Donut Chart */}
-        <div className="glass-card p-6">
+        <div className="glass-card p-6 relative overflow-hidden">
+          <div className="pointer-events-none absolute -top-20 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-gradient-to-br from-limeSoft/35 via-blueSmoke/20 to-transparent blur-3xl" />
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-white">Portfolio Allocation</h2>
-            <PieChartIcon className="w-5 h-5 text-slate-400" />
+            <h2 className="text-lg font-semibold text-theme-main">Portfolio Allocation</h2>
+            <PieChartIcon className="w-5 h-5 text-theme-accent" />
           </div>
           
           <div className="relative flex justify-center items-center">
@@ -145,7 +179,8 @@ export default function HomePage() {
                     innerRadius={65}
                     outerRadius={90}
                     dataKey="value"
-                    stroke="none"
+                    stroke="rgba(236, 240, 204, 0.9)"
+                    strokeWidth={2}
                     startAngle={90}
                     endAngle={-270}
                     activeIndex={activeIndex !== null ? activeIndex : undefined}
@@ -157,7 +192,7 @@ export default function HomePage() {
                       <Cell 
                         key={`cell-${index}`} 
                         fill={entry.color}
-                        style={{ cursor: 'pointer', outline: 'none' }}
+                        style={{ cursor: 'pointer', outline: 'none', filter: 'drop-shadow(0 0 6px rgba(115, 145, 135, 0.25))' }}
                       />
                     ))}
                   </Pie>
@@ -167,7 +202,9 @@ export default function HomePage() {
             
             {/* Center Content */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <p className="text-3xl font-bold text-white">{formatCompact(totalValue)}</p>
+              <div className="px-4 py-2 rounded-xl border border-theme-soft bg-theme-surface shadow-md">
+                <p className="text-3xl font-bold text-theme-main">{formatCompact(totalValue)}</p>
+              </div>
               <p className={`text-sm font-medium ${totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                 {totalPnl >= 0 ? '+' : ''}{formatPercent(totalPnlPercent)}
               </p>
@@ -180,14 +217,16 @@ export default function HomePage() {
               <div 
                 key={item.symbol} 
                 className={`flex items-center gap-2 p-2 rounded-lg transition-all cursor-pointer ${
-                  activeIndex === index ? 'bg-white/10' : 'hover:bg-white/5'
+                  activeIndex === index
+                    ? 'bg-mild border border-theme-soft shadow-md'
+                    : 'hover:bg-theme-surface-2 border border-transparent'
                 }`}
                 onMouseEnter={() => setActiveIndex(index)}
                 onMouseLeave={() => setActiveIndex(null)}
               >
                 <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                <span className="text-slate-300 text-sm flex-1 truncate">{item.symbol}</span>
-                <span className="text-slate-500 text-sm">{item.percentage?.toFixed(1)}%</span>
+                <span className="text-theme-main text-sm flex-1 truncate">{item.symbol}</span>
+                <span className="text-theme-muted text-sm">{item.percentage?.toFixed(1)}%</span>
               </div>
             ))}
           </div>
@@ -204,8 +243,8 @@ export default function HomePage() {
                     style={{ backgroundColor: hoveredData.color }} 
                   />
                   <div>
-                    <p className="text-white font-semibold">{hoveredData.symbol}</p>
-                    <p className="text-slate-400 text-sm">
+                    <p className="text-theme-main font-semibold">{hoveredData.symbol}</p>
+                    <p className="text-theme-muted text-sm">
                       {formatCurrency(hoveredData.actualValue || 0)}
                     </p>
                   </div>
@@ -214,11 +253,11 @@ export default function HomePage() {
                   <p className="text-2xl font-bold text-emerald-400">
                     {hoveredData.percentage?.toFixed(1)}%
                   </p>
-                  <p className="text-slate-400 text-xs">of portfolio</p>
+                  <p className="text-theme-muted text-xs">of portfolio</p>
                 </div>
               </div>
             ) : (
-              <p className="text-slate-500 text-sm text-center">Hover over chart to see details</p>
+              <p className="text-theme-muted text-sm text-center">Hover over chart to see details</p>
             )}
           </div>
         </div>
@@ -240,7 +279,7 @@ export default function HomePage() {
                    'Needs attention'}
                 </p>
               </div>
-              <div className="w-16 h-2 bg-slate-700 rounded-full overflow-hidden shrink-0">
+              <div className="w-16 h-2 bg-theme-surface-2 border border-theme-soft rounded-full overflow-hidden shrink-0">
                 <div className="h-full rounded-full transition-all" 
                      style={{ width: `${disciplineScore}%`, backgroundColor: scoreColor }} />
               </div>
@@ -250,15 +289,15 @@ export default function HomePage() {
           {/* Diversity Card */}
           <div className="glass-card glass-card-hover p-5">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-indigo-500/15 flex items-center justify-center shrink-0">
-                <PieChartIcon className="w-6 h-6 text-indigo-400" />
+              <div className="w-12 h-12 rounded-xl bg-blueSmoke/15 flex items-center justify-center shrink-0">
+                <PieChartIcon className="w-6 h-6 text-blueSmoke" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-white font-semibold">+{diversityScore} Diversity</p>
                 <p className="text-slate-400 text-sm">{positions.length} assets in portfolio</p>
               </div>
-              <div className="w-16 h-2 bg-slate-700 rounded-full overflow-hidden shrink-0">
-                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${diversityScore}%` }} />
+              <div className="w-16 h-2 bg-theme-surface-2 border border-theme-soft rounded-full overflow-hidden shrink-0">
+                <div className="h-full bg-blueSmoke rounded-full" style={{ width: `${diversityScore}%` }} />
               </div>
             </div>
           </div>
@@ -308,8 +347,8 @@ export default function HomePage() {
                 className="flex items-center justify-between p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center">
-                    <span className="text-sm font-bold text-indigo-400">
+                  <div className="w-10 h-10 rounded-xl bg-blueSmoke/15 border border-theme-soft flex items-center justify-center">
+                    <span className="text-sm font-bold text-blueSmoke">
                       {position.symbol.slice(0, 2)}
                     </span>
                   </div>

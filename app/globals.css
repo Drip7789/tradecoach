@@ -3,8 +3,25 @@
 @tailwind utilities;
 
 :root {
-  --bg-gradient-start: #0a0f1a;
-  --bg-gradient-end: #1a1f2e;
+  --page-bg: #ECEEDC;
+  --page-bg-2: #E6E8D4;
+  --surface: #DEE2C7;
+  --surface-2: #D6DCBE;
+  --border-soft: #B3978D;
+  --text-main: #2E3A35;
+  --text-subtle: #51615A;
+  --accent: #739187;
+  --accent-strong: #7FBF87;
+  --btn-primary-hover: #5f7f76;
+  --button-surface: #E6EACB;
+  --button-surface-hover: #D9E3B8;
+  --ring-track: rgba(179, 151, 141, 0.24);
+  --bg-gradient-start: var(--page-bg);
+  --bg-gradient-end: var(--page-bg-2);
+  --card-bg: var(--surface);
+  --card-hover: var(--surface-2);
+  --primary-btn: var(--accent);
+  --positive: var(--accent-strong);
 }
 
 * {
@@ -20,18 +37,17 @@ html {
 body {
   background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
   background-attachment: fixed;
-  color: #F8FAFC;
+  color: var(--text-main);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   min-height: 100vh;
 }
 
 /* Glassmorphism card */
 .glass-card {
-  background: rgba(30, 41, 59, 0.6);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  box-shadow: 0 6px 16px rgba(115, 145, 135, 0.15);
 }
 
 .glass-card-hover {
@@ -39,15 +55,15 @@ body {
 }
 
 .glass-card-hover:hover {
-  background: rgba(30, 41, 59, 0.8);
-  border-color: rgba(99, 102, 241, 0.3);
-  transform: translateY(-2px);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  background: var(--card-hover);
+  border-color: var(--border-soft);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(115, 145, 135, 0.2);
 }
 
 /* Gradient text */
 .gradient-text {
-  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #EC4899 100%);
+  background: linear-gradient(135deg, #739187 0%, #AFC99B 60%, #B3978D 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -55,11 +71,11 @@ body {
 
 /* Glow effects */
 .glow-purple {
-  box-shadow: 0 0 30px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 0 20px rgba(115, 145, 135, 0.2);
 }
 
 .glow-green {
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 0 20px rgba(127, 191, 135, 0.35);
 }
 
 .glow-red {
@@ -69,7 +85,7 @@ body {
 /* Animated gradient border */
 .gradient-border {
   position: relative;
-  background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+  background: linear-gradient(135deg, #D1BE97 0%, #D9D99C 100%);
   border-radius: 16px;
 }
 
@@ -77,7 +93,7 @@ body {
   content: '';
   position: absolute;
   inset: -1px;
-  background: linear-gradient(135deg, #6366F1, #8B5CF6, #EC4899, #6366F1);
+  background: linear-gradient(135deg, #739187, #AFC99B, #B3978D, #739187);
   border-radius: 17px;
   z-index: -1;
   background-size: 300% 300%;
@@ -137,38 +153,38 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.3);
+  background: rgba(115, 145, 135, 0.4);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.5);
+  background: rgba(115, 145, 135, 0.6);
 }
 
 /* Input styles */
 input, select {
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #ECF0CC;
+  border: 1px solid var(--border-soft);
   border-radius: 12px;
   padding: 14px 18px;
-  color: #F8FAFC;
+  color: var(--text-main);
   font-size: 16px;
   transition: all 0.2s ease;
 }
 
 input:focus, select:focus {
   outline: none;
-  border-color: #6366F1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  border-color: #739187;
+  box-shadow: 0 0 0 3px rgba(115, 145, 135, 0.2);
 }
 
 input::placeholder {
-  color: #64748B;
+  color: #7A857F;
 }
 
 /* Button styles */
 .btn-primary {
-  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+  background: var(--primary-btn);
   color: white;
   padding: 14px 28px;
   border-radius: 12px;
@@ -180,7 +196,7 @@ input::placeholder {
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 8px 20px rgba(115, 145, 135, 0.35);
 }
 
 .btn-success {
@@ -202,22 +218,92 @@ input::placeholder {
 /* Chart container */
 .chart-container {
   position: relative;
-  filter: drop-shadow(0 0 30px rgba(99, 102, 241, 0.2));
+  filter: drop-shadow(0 0 20px rgba(115, 145, 135, 0.22));
 }
 
 /* Stat card */
 .stat-card {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
   padding: 20px;
   transition: all 0.3s ease;
+  box-shadow: 0 6px 16px rgba(115, 145, 135, 0.12);
 }
 
 .stat-card:hover {
-  border-color: rgba(99, 102, 241, 0.3);
-  transform: translateY(-2px);
+  background: var(--card-hover);
+  border-color: var(--border-soft);
+  transform: translateY(-1px);
 }
+
+/* Keep dark utility text readable on light cards */
+.glass-card .text-white,
+.stat-card .text-white {
+  color: var(--text-main);
+}
+
+.glass-card .text-slate-400,
+.stat-card .text-slate-400,
+.glass-card .text-slate-500,
+.stat-card .text-slate-500 {
+  color: var(--text-subtle);
+}
+
+/* Theme utility classes to avoid one-off colors */
+.text-theme-main { color: var(--text-main); }
+.text-theme-muted { color: var(--text-subtle); }
+.text-theme-accent { color: var(--accent); }
+.text-theme-growth { color: var(--accent-strong); }
+.bg-theme-surface { background: var(--surface); }
+.bg-theme-surface-2 { background: var(--surface-2); }
+.border-theme-soft { border-color: var(--border-soft); }
+
+/* Ensure legacy semantic utility names stay aligned with theme tokens */
+.text-text-primary { color: var(--text-main) !important; }
+.text-text-secondary, .text-text-muted { color: var(--text-subtle) !important; }
+.bg-background-primary { background-color: var(--page-bg) !important; }
+.bg-background-secondary, .bg-background-card { background-color: var(--surface) !important; }
+.bg-background-tertiary { background-color: var(--surface-2) !important; }
+
+/* Normalize legacy slate/indigo/purple classes to natural palette */
+.text-slate-300, .text-slate-400, .text-slate-500 { color: var(--text-subtle) !important; }
+.text-slate-700 { color: var(--text-main) !important; }
+.bg-white\/5, .bg-white\/10 { background-color: rgba(217, 217, 156, 0.42) !important; }
+.border-white\/5, .border-white\/10 { border-color: rgba(179, 151, 141, 0.55) !important; }
+.text-indigo-300, .text-indigo-400, .text-indigo-500, .text-purple-400, .text-purple-500 { color: var(--accent) !important; }
+.bg-indigo-500\/10, .bg-indigo-500\/20, .bg-indigo-500\/30, .bg-purple-500\/10, .bg-purple-500\/20 {
+  background-color: rgba(115, 145, 135, 0.24) !important;
+}
+.border-indigo-500\/30, .border-indigo-500\/50, .border-purple-500\/30 { border-color: var(--border-soft) !important; }
+.from-indigo-500 {
+  --tw-gradient-from: var(--accent) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(115 145 135 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+.to-purple-600, .to-purple-500, .to-indigo-600 {
+  --tw-gradient-to: var(--btn-primary-hover) var(--tw-gradient-to-position) !important;
+}
+
+/* Unified button feels */
+button[class*="bg-gradient-to-r"], button[class*="bg-gradient-to-br"] {
+  box-shadow: 0 4px 12px rgba(115, 145, 135, 0.2);
+}
+
+button[class*="bg-white/5"],
+button[class*="bg-white/10"] {
+  background-color: var(--button-surface) !important;
+  border: 1px solid var(--border-soft);
+  color: var(--text-main);
+}
+
+button[class*="bg-white/5"]:hover,
+button[class*="bg-white/10"]:hover {
+  background-color: var(--button-surface-hover) !important;
+}
+
+/* Keep warning/error contrast untouched */
+.text-amber-400, .text-red-400, .text-red-500, .text-amber-300 { filter: saturate(1.05); }
 
 /* Recharts tooltip customization */
 .recharts-tooltip-wrapper {

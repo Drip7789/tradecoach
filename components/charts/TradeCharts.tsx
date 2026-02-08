@@ -29,11 +29,11 @@ import {
 const COLORS = {
   profit: '#10B981',
   loss: '#EF4444',
-  neutral: '#6366F1',
-  background: '#1E293B',
-  grid: '#334155',
-  text: '#94A3B8',
-  accent: '#8B5CF6',
+  neutral: '#739187',
+  background: '#D1BE97',
+  grid: '#B3978D',
+  text: '#2E3A35',
+  accent: '#739187',
 };
 
 const PIE_COLORS = ['#10B981', '#EF4444', '#F59E0B', '#6366F1', '#EC4899', '#14B8A6'];
@@ -615,4 +615,3 @@ export function StreakChart({ trades, height = 150 }: StreakChartProps) {
     </div>
   );
 }
-

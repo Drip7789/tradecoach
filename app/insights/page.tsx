@@ -78,12 +78,12 @@ export default function InsightsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-1">Insights</h1>
-          <p className="text-slate-400">Your trading psychology analysis</p>
+          <h1 className="text-3xl font-bold text-theme-main mb-1">Insights</h1>
+          <p className="text-theme-muted">Your trading psychology analysis</p>
         </div>
         <button
           onClick={() => setShowUpload(!showUpload)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30 transition-all border border-indigo-500/30"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blueSmoke text-white hover:bg-[#5f7f76] transition-all border border-blueSmoke shadow-md"
         >
           <Upload className="w-4 h-4" />
           <span className="hidden sm:inline">Analyze File</span>
@@ -105,10 +105,10 @@ export default function InsightsPage() {
           <div className="relative flex flex-col items-center">
             <div className="w-40 h-40 rounded-full flex items-center justify-center"
                  style={{ 
-                   background: `conic-gradient(${scoreColor} ${disciplineScore * 3.6}deg, rgba(255,255,255,0.1) 0deg)`,
+                   background: `conic-gradient(${scoreColor} ${disciplineScore * 3.6}deg, var(--ring-track) 0deg)`,
                  }}>
-              <div className="w-32 h-32 rounded-full bg-background-primary flex flex-col items-center justify-center">
-                <span className="text-4xl font-bold text-white">{disciplineScore}</span>
+              <div className="w-32 h-32 rounded-full bg-theme-surface-2 border border-theme-soft shadow-sm flex flex-col items-center justify-center">
+                <span className="text-4xl font-bold text-theme-main">{disciplineScore}</span>
                 <span className="text-slate-400 text-sm">/ 100</span>
               </div>
             </div>
@@ -121,7 +121,7 @@ export default function InsightsPage() {
 
           {/* Score Details */}
           <div className="flex-1 text-center lg:text-left">
-            <h2 className="text-2xl font-bold text-white mb-2">Discipline Score</h2>
+            <h2 className="text-2xl font-bold text-theme-main mb-2">Discipline Score</h2>
             <p className="text-slate-400 mb-6 max-w-md">
               {disciplineScore >= 80 
                 ? "Outstanding! You're trading with excellent discipline and emotional control."
@@ -134,11 +134,11 @@ export default function InsightsPage() {
             <div className="flex flex-wrap gap-4 justify-center lg:justify-start">
               <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5">
                 <TrendingUp className="w-4 h-4 text-emerald-400" />
-                <span className="text-white">{trades.length} trades</span>
+                <span className="text-theme-main">{trades.length} trades</span>
               </div>
               <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5">
                 <AlertTriangle className="w-4 h-4 text-amber-400" />
-                <span className="text-white">{summary.criticalBiases + summary.highBiases} warnings</span>
+                <span className="text-theme-main">{summary.criticalBiases + summary.highBiases} warnings</span>
               </div>
             </div>
           </div>
@@ -176,8 +176,8 @@ export default function InsightsPage() {
       {trades.length >= 3 && (
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
-            <BarChart3 className="w-5 h-5 text-indigo-400" />
-            <h2 className="text-xl font-semibold text-white">Graphical Insights</h2>
+            <BarChart3 className="w-5 h-5 text-theme-accent" />
+            <h2 className="text-xl font-semibold text-theme-main">Graphical Insights</h2>
           </div>
           
           {/* Row 1: Main Charts */}
@@ -204,8 +204,8 @@ export default function InsightsPage() {
       {/* Biases List */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-white">Detected Patterns</h2>
-          <Brain className="w-5 h-5 text-slate-400" />
+          <h2 className="text-xl font-semibold text-theme-main">Detected Patterns</h2>
+          <Brain className="w-5 h-5 text-theme-accent" />
         </div>
         
         {trades.length < 3 ? (
@@ -213,7 +213,7 @@ export default function InsightsPage() {
             <div className="w-16 h-16 rounded-2xl bg-indigo-500/20 flex items-center justify-center mx-auto mb-4">
               <Sparkles className="w-8 h-8 text-indigo-400" />
             </div>
-            <h3 className="text-xl font-semibold text-white mb-2">Not enough data yet</h3>
+            <h3 className="text-xl font-semibold text-theme-main mb-2">Not enough data yet</h3>
             <p className="text-slate-400 max-w-sm mx-auto">
               Make at least 3 trades to unlock your personalized bias analysis and insights.
             </p>
@@ -223,7 +223,7 @@ export default function InsightsPage() {
             <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 flex items-center justify-center mx-auto mb-4">
               <Zap className="w-8 h-8 text-emerald-400" />
             </div>
-            <h3 className="text-xl font-semibold text-white mb-2">Looking great!</h3>
+            <h3 className="text-xl font-semibold text-theme-main mb-2">Looking great!</h3>
             <p className="text-slate-400 max-w-sm mx-auto">
               No significant biases detected. Keep up the disciplined trading!
             </p>
@@ -246,7 +246,7 @@ export default function InsightsPage() {
                     
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2 flex-wrap">
-                        <h3 className="text-lg font-semibold text-white">
+                        <h3 className="text-lg font-semibold text-theme-main">
                           {definition.name}
                         </h3>
                         <span 

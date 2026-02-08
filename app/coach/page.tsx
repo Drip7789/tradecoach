@@ -150,8 +150,8 @@ export default function CoachPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-1">AI Coach</h1>
-          <p className="text-slate-400">Golden Era coaching: build discipline, not dopamine habits.</p>
+          <h1 className="text-3xl font-bold text-theme-main mb-1">AI Coach</h1>
+          <p className="text-theme-muted">Golden Era coaching: build discipline, not dopamine habits.</p>
         </div>
         
         {/* Mode Toggle */}
@@ -161,7 +161,7 @@ export default function CoachPage() {
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
               chatMode === 'voice'
                 ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white'
-                : 'text-slate-400 hover:text-white'
+                : 'text-theme-muted hover:text-theme-main'
             }`}
           >
             <Mic className="w-4 h-4" />
@@ -172,7 +172,7 @@ export default function CoachPage() {
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
               chatMode === 'text'
                 ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white'
-                : 'text-slate-400 hover:text-white'
+                : 'text-theme-muted hover:text-theme-main'
             }`}
           >
             <Keyboard className="w-4 h-4" />
@@ -189,8 +189,8 @@ export default function CoachPage() {
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-4">
                 <Sparkles className="w-8 h-8 text-white" />
               </div>
-              <h2 className="text-xl font-semibold text-white mb-2">Voice Trading Coach</h2>
-              <p className="text-slate-400 text-sm max-w-sm">
+              <h2 className="text-xl font-semibold text-theme-main mb-2">Voice Trading Coach</h2>
+              <p className="text-theme-muted text-sm max-w-sm">
                 Tap the microphone and ask about your trading patterns, biases, or how to improve your discipline.
               </p>
             </div>
@@ -229,7 +229,7 @@ export default function CoachPage() {
                   ? 'bg-white/5'
                   : 'bg-indigo-500/20'
               }`}>
-                <p className="text-white text-sm whitespace-pre-line">{message.content}</p>
+                <p className="text-theme-main text-sm whitespace-pre-line">{message.content}</p>
               </div>
             </div>
           ))}
@@ -263,7 +263,7 @@ export default function CoachPage() {
                     onClick={() => {
                       setInput(suggestion.text);
                     }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-sm transition-all"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-theme-main text-sm transition-all"
                   >
                     <Icon className="w-4 h-4 text-indigo-400" />
                     {suggestion.text}
@@ -283,7 +283,7 @@ export default function CoachPage() {
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
               placeholder="Ask about your trading patterns..."
-              className="flex-1 p-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-slate-500 focus:border-indigo-500 transition-all"
+              className="flex-1 p-4 bg-theme-surface-2 border border-theme-soft rounded-xl text-theme-main placeholder:text-theme-muted focus:border-blueSmoke transition-all"
             />
             <button
               onClick={handleSend}

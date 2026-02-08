@@ -97,8 +97,8 @@ export default function SettingsPage() {
     <div className="min-h-screen p-6 pb-28 lg:pb-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-1">Settings</h1>
-        <p className="text-slate-400">Customize your BiasCoach experience</p>
+        <h1 className="text-3xl font-bold text-theme-main mb-1">Settings</h1>
+        <p className="text-theme-muted">Customize your BiasCoach experience</p>
       </div>
 
       {/* Profile Section */}
