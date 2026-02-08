@@ -1,3 +1,6 @@
+# VIDEO FOR GRADIUM 
+youtube.com/watch?v=ODaeiYF8214&feature=youtu.be
+
 # Money Trees 🌲
 
 **A behavioral trading psychology platform that actually helps you trade better.**
